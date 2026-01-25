@@ -18,12 +18,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relaciones
   messages Message[]
   bookings Booking[]
   reviews  Review[]
 
-  // Campos para Clerk
   clerkUserId String? @unique
   clerkData   Json?
 
@@ -44,14 +42,13 @@ model Message {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relación con usuario
   userId String?
   user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  @@map("messages")
   @@index([email])
   @@index([createdAt])
   @@index([status])
+  @@map("messages")
 }
 
 model Activity {
@@ -80,15 +77,14 @@ model Activity {
   bookings       Booking[]
   reviews        Review[]
   harvestId      String?
-  harvest        Harvest?        @relation(fields: [harvestId], references: [id], onDelete: SetNull)
+  harvest        Harvest?        @relation(fields: [harvestId], references: [id], onDelete: Cascade, name: "HarvestActivities")
   calendarEvents CalendarEvent[]
 
-  @@map("activities")
   @@index([date])
   @@index([status])
   @@index([category])
+  @@map("activities")
 }
-
 
 model Harvest {
   id             String   @id @default(cuid())
@@ -108,16 +104,16 @@ model Harvest {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  // Relaciones
-  activities     Activity[]
-  bookings       Booking[]
-  calendarEvents CalendarEvent[]
-  products       Product[]
+  // Relaciones - SIN onDelete aquí (va en el otro lado)
+  activities     Activity[]      @relation("HarvestActivities")
+  bookings       Booking[]       @relation("HarvestBookings")
+  calendarEvents CalendarEvent[] @relation("HarvestCalendarEvents")
+  products       Product[]       @relation("HarvestProducts")
 
-  @@map("harvests")
   @@index([isActive])
   @@index([season])
   @@index([year])
+  @@map("harvests")
 }
 
 model Booking {
@@ -128,40 +124,35 @@ model Booking {
   userId      String?
   user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  // Información del cliente
-  clientName  String
-  clientEmail String
-  clientPhone String?
-  numPeople   Int     @default(1)
-  // Estado
+  clientName    String
+  clientEmail   String
+  clientPhone   String?
+  numPeople     Int     @default(1)
   status        String  @default("pending")
   paymentStatus String  @default("pending")
   paymentMethod String?
 
-  // Fechas
   bookingDate  DateTime  @default(now())
   activityDate DateTime
   confirmedAt  DateTime?
   cancelledAt  DateTime?
 
-  // Notas
   specialRequests String? @db.Text
   notes           String? @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relaciones
   review    Review?
   harvestId String?
-  harvest   Harvest? @relation(fields: [harvestId], references: [id], onDelete: SetNull)
+  harvest   Harvest? @relation(fields: [harvestId], references: [id], onDelete: Cascade, name: "HarvestBookings")
 
-  @@map("bookings")
   @@index([bookingCode])
   @@index([clientEmail])
   @@index([status])
   @@index([bookingDate])
   @@index([activityDate])
+  @@map("bookings")
 }
 
 model Review {
@@ -178,24 +169,22 @@ model Review {
   comment  String  @db.Text
   response String? @db.Text
 
-  // Moderación
   status      String    @default("pending")
   moderatedBy String?
   moderatedAt DateTime?
 
-  // Metadatos
   ipAddress String?
   userAgent String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("reviews")
   @@index([activityId])
   @@index([userId])
   @@index([rating])
   @@index([status])
   @@index([createdAt])
+  @@map("reviews")
 }
 
 model NewsletterSubscription {
@@ -210,10 +199,10 @@ model NewsletterSubscription {
   subscribedAt   DateTime  @default(now())
   unsubscribedAt DateTime?
 
-  @@map("newsletter_subscriptions")
   @@index([email])
   @@index([status])
   @@index([subscribedAt])
+  @@map("newsletter_subscriptions")
 }
 
 model SiteSettings {
@@ -239,12 +228,12 @@ model SystemLog {
   severity  String   @default("info")
   createdAt DateTime @default(now())
 
-  @@map("system_logs")
   @@index([action])
   @@index([module])
   @@index([userId])
   @@index([createdAt])
   @@index([severity])
+  @@map("system_logs")
 }
 
 model MediaFile {
@@ -263,9 +252,9 @@ model MediaFile {
   uploadedBy   String?
   createdAt    DateTime @default(now())
 
-  @@map("media_files")
   @@index([category])
   @@index([createdAt])
+  @@map("media_files")
 }
 
 model VisitorStat {
@@ -311,17 +300,16 @@ model CalendarEvent {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  // Relaciones
   activityId String?
   activity   Activity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
   harvestId  String?
-  harvest    Harvest?  @relation(fields: [harvestId], references: [id], onDelete: SetNull)
+  harvest    Harvest?  @relation(fields: [harvestId], references: [id], onDelete: Cascade, name: "HarvestCalendarEvents")
 
-  @@map("calendar_events")
   @@index([startDate])
   @@index([endDate])
   @@index([type])
   @@index([isPublic])
+  @@map("calendar_events")
 }
 
 model Product {
@@ -332,15 +320,15 @@ model Product {
   descriptionFr String?  @db.Text
   category      String
   harvestId     String?
-  harvest       Harvest? @relation(fields: [harvestId], references: [id], onDelete: SetNull)
+  harvest       Harvest? @relation(fields: [harvestId], references: [id], onDelete: Cascade, name: "HarvestProducts")
   isAvailable   Boolean  @default(true)
   isFeatured    Boolean  @default(false)
   images        String[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  @@map("products")
   @@index([category])
   @@index([isAvailable])
   @@index([isFeatured])
+  @@map("products")
 }
