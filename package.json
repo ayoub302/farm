@@ -1,13 +1,13 @@
 {
   "name": "my-farm-project",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "scripts": {
-    "postinstall": "prisma generate",
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "rm -rf node_modules/.prisma node_modules/@prisma && prisma generate && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.36.5",
