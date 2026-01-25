@@ -1,0 +1,346 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ MODELOS ============
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  messages Message[]
+  bookings Booking[]
+  reviews  Review[]
+
+  // Campos para Clerk
+  clerkUserId String? @unique
+  clerkData   Json?
+
+  @@map("users")
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String
+  message   String   @db.Text
+  status    String   @default("unread")
+  source    String   @default("contact_form")
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relación con usuario
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("messages")
+  @@index([email])
+  @@index([createdAt])
+  @@index([status])
+}
+
+model Activity {
+  id                  String   @id @default(cuid())
+  titleAr             String
+  titleFr             String
+  descriptionAr       String   @db.Text
+  descriptionFr       String   @db.Text
+  imageUrl            String
+  date                DateTime
+  endDate             DateTime
+  startTime           String?
+  endTime             String?
+  location            String
+  maxCapacity         Int
+  currentParticipants Int      @default(0)
+  status              String   @default("upcoming")
+  category            String
+  requirements        String?
+  whatToBring         String?
+  duration            Int
+  featured            Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  bookings       Booking[]
+  reviews        Review[]
+  harvestId      String?
+  harvest        Harvest?        @relation(fields: [harvestId], references: [id], onDelete: SetNull)
+  calendarEvents CalendarEvent[]
+
+  @@map("activities")
+  @@index([date])
+  @@index([status])
+  @@index([category])
+}
+
+
+model Harvest {
+  id             String   @id @default(cuid())
+  productAr      String
+  productFr      String
+  icon           String
+  statusAr       String
+  statusFr       String
+  availabilityAr String
+  availabilityFr String
+  nextHarvest    DateTime
+  season         String
+  year           Int
+  isActive       Boolean  @default(true)
+  descriptionAr  String?  @db.Text
+  descriptionFr  String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relaciones
+  activities     Activity[]
+  bookings       Booking[]
+  calendarEvents CalendarEvent[]
+  products       Product[]
+
+  @@map("harvests")
+  @@index([isActive])
+  @@index([season])
+  @@index([year])
+}
+
+model Booking {
+  id          String   @id @default(cuid())
+  bookingCode String   @unique
+  activityId  String
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Información del cliente
+  clientName  String
+  clientEmail String
+  clientPhone String?
+  numPeople   Int     @default(1)
+  // Estado
+  status        String  @default("pending")
+  paymentStatus String  @default("pending")
+  paymentMethod String?
+
+  // Fechas
+  bookingDate  DateTime  @default(now())
+  activityDate DateTime
+  confirmedAt  DateTime?
+  cancelledAt  DateTime?
+
+  // Notas
+  specialRequests String? @db.Text
+  notes           String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  review    Review?
+  harvestId String?
+  harvest   Harvest? @relation(fields: [harvestId], references: [id], onDelete: SetNull)
+
+  @@map("bookings")
+  @@index([bookingCode])
+  @@index([clientEmail])
+  @@index([status])
+  @@index([bookingDate])
+  @@index([activityDate])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  activityId String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  bookingId  String?  @unique
+  booking    Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  rating   Int
+  title    String?
+  comment  String  @db.Text
+  response String? @db.Text
+
+  // Moderación
+  status      String    @default("pending")
+  moderatedBy String?
+  moderatedAt DateTime?
+
+  // Metadatos
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("reviews")
+  @@index([activityId])
+  @@index([userId])
+  @@index([rating])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model NewsletterSubscription {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String?
+  language       String    @default("fr")
+  source         String    @default("website")
+  status         String    @default("active")
+  ipAddress      String?
+  userAgent      String?
+  subscribedAt   DateTime  @default(now())
+  unsubscribedAt DateTime?
+
+  @@map("newsletter_subscriptions")
+  @@index([email])
+  @@index([status])
+  @@index([subscribedAt])
+}
+
+model SiteSettings {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       Json
+  description String?
+  updatedAt   DateTime @updatedAt
+  updatedBy   String?
+
+  @@map("site_settings")
+}
+
+model SystemLog {
+  id        String   @id @default(cuid())
+  action    String
+  module    String
+  userId    String?
+  userEmail String?
+  ipAddress String?
+  userAgent String?
+  details   Json?
+  severity  String   @default("info")
+  createdAt DateTime @default(now())
+
+  @@map("system_logs")
+  @@index([action])
+  @@index([module])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([severity])
+}
+
+model MediaFile {
+  id           String   @id @default(cuid())
+  filename     String
+  originalName String
+  path         String
+  url          String
+  mimeType     String
+  size         Int
+  width        Int?
+  height       Int?
+  altTextAr    String?
+  altTextFr    String?
+  category     String?
+  uploadedBy   String?
+  createdAt    DateTime @default(now())
+
+  @@map("media_files")
+  @@index([category])
+  @@index([createdAt])
+}
+
+model VisitorStat {
+  id        String   @id @default(cuid())
+  date      DateTime @unique
+  pageViews Int      @default(0)
+  visitors  Int      @default(0)
+  source    Json?
+  device    Json?
+  country   Json?
+
+  @@map("visitor_stats")
+}
+
+model Supplier {
+  id          String   @id @default(cuid())
+  name        String
+  contactName String?
+  email       String?
+  phone       String?
+  address     String?
+  products    String?
+  notes       String?  @db.Text
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("suppliers")
+}
+
+model CalendarEvent {
+  id            String   @id @default(cuid())
+  titleAr       String
+  titleFr       String
+  descriptionAr String?  @db.Text
+  descriptionFr String?  @db.Text
+  startDate     DateTime
+  endDate       DateTime
+  type          String
+  color         String
+  isPublic      Boolean  @default(true)
+  location      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relaciones
+  activityId String?
+  activity   Activity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  harvestId  String?
+  harvest    Harvest?  @relation(fields: [harvestId], references: [id], onDelete: SetNull)
+
+  @@map("calendar_events")
+  @@index([startDate])
+  @@index([endDate])
+  @@index([type])
+  @@index([isPublic])
+}
+
+model Product {
+  id            String   @id @default(cuid())
+  nameAr        String
+  nameFr        String
+  descriptionAr String?  @db.Text
+  descriptionFr String?  @db.Text
+  category      String
+  harvestId     String?
+  harvest       Harvest? @relation(fields: [harvestId], references: [id], onDelete: SetNull)
+  isAvailable   Boolean  @default(true)
+  isFeatured    Boolean  @default(false)
+  images        String[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("products")
+  @@index([category])
+  @@index([isAvailable])
+  @@index([isFeatured])
+}
