@@ -23,16 +23,20 @@ export async function GET(req) {
     });
 
     const user = await clerk.users.getUser(userId);
-    const userEmail = user.emailAddresses[0]?.emailAddress;
-    const adminEmail = process.env.ADMIN_EMAIL;
+    const userEmail = user.emailAddresses[0]?.emailAddress?.toLowerCase();
+
+    // CORRECCIÓN: Procesar múltiples emails correctamente
+    const adminEmails = process.env.ADMIN_EMAIL?.split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter((email) => email.length > 0);
 
     console.log("[ADMIN_VERIFY] Checking:", {
       userEmail,
-      adminEmail,
-      isAdmin: userEmail === adminEmail,
+      adminEmails,
+      isAdmin: adminEmails?.includes(userEmail),
     });
 
-    if (!adminEmail) {
+    if (!adminEmails || adminEmails.length === 0) {
       console.error("[ADMIN_VERIFY] ADMIN_EMAIL not configured");
       return NextResponse.json(
         { success: false, error: "CONFIG_ERROR" },
@@ -40,7 +44,8 @@ export async function GET(req) {
       );
     }
 
-    const isAdmin = userEmail === adminEmail;
+    // CORRECCIÓN: Usar includes() en lugar de comparación directa
+    const isAdmin = adminEmails.includes(userEmail);
 
     if (!isAdmin) {
       console.log("[ADMIN_VERIFY] Access denied");
@@ -49,7 +54,7 @@ export async function GET(req) {
           success: false,
           error: "NOT_ADMIN",
           userEmail,
-          requiredEmail: adminEmail,
+          requiredEmails: adminEmails,
         },
         { status: 403 },
       );
@@ -61,7 +66,7 @@ export async function GET(req) {
       success: true,
       user: {
         id: user.id,
-        email: userEmail,
+        email: user.emailAddresses[0]?.emailAddress,
         firstName: user.firstName,
         lastName: user.lastName,
         isAdmin: true,

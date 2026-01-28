@@ -5,21 +5,17 @@ import { createContext, useContext, useState, useEffect } from "react";
 const LanguageContext = createContext();
 
 export function LanguageProvider({ children }) {
-  // 1. Inicialización Lazy: Solo se ejecuta una vez al crear el estado
+  // Idioma estable durante SSR → siempre "fr" o el que tú quieras
   const [language, setLanguage] = useState(() => {
-    // Verificamos si estamos en el navegador (cliente)
     if (typeof window !== "undefined") {
-      const savedLanguage = localStorage.getItem("farm-language");
-      return savedLanguage || "ar";
+      return localStorage.getItem("farm-language") || "fr";
     }
-    return "ar"; // Valor por defecto para el servidor
+    return "fr";
   });
 
-  // 2. Sincronización con el sistema externo (DOM y LocalStorage)
+  // Sincronizamos DOM y localStorage cuando cambia el idioma
   useEffect(() => {
     localStorage.setItem("farm-language", language);
-
-    // Ajustamos los atributos del documento para accesibilidad y RTL
     document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
     document.documentElement.lang = language;
   }, [language]);

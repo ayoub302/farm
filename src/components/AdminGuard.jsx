@@ -195,15 +195,6 @@ export default function AdminGuard({ children }) {
               <Home className="w-5 h-5" />
               Return to Homepage
             </Link>
-
-            {error === "NOT_AUTHENTICATED" && (
-              <Link
-                href="/sign-in"
-                className="inline-block w-full border-2 border-[#2d5a27] text-[#2d5a27] px-6 py-3 rounded-lg hover:bg-green-50 transition font-medium text-center"
-              >
-                Sign In
-              </Link>
-            )}
           </div>
 
           <div className="mt-8 pt-6 border-t border-gray-200">

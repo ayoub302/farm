@@ -473,9 +473,7 @@ export default function ContactoPage() {
                 <h3 className="text-xl font-bold text-gray-800 mb-2">
                   {isClient ? t.emailTitle : ""}
                 </h3>
-                <p className="text-gray-600 text-xl">
-                  info@granjalahuertafeliz.com
-                </p>
+                <p className="text-gray-600 text-xl">n_bachiri@hotmail.com</p>
                 <p className="text-gray-500 mt-1">
                   {isClient ? t.responseTime : ""}
                 </p>

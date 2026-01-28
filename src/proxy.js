@@ -3,13 +3,12 @@ import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 export default clerkMiddleware(async (auth, req) => {
-  const { userId } = await auth();
+  const { userId } = auth();
   const pathname = req.nextUrl.pathname;
 
-  // ==================== RUTAS IGNORADAS (para evitar bucles) ====================
+  // ==================== RUTAS IGNORADAS ====================
   const ignoredPaths = ["/_next", "/favicon.ico", "/public", "/api/webhook"];
 
-  // Si es ruta ignorada, saltar middleware
   if (ignoredPaths.some((path) => pathname.includes(path))) {
     return NextResponse.next();
   }
@@ -21,19 +20,21 @@ export default clerkMiddleware(async (auth, req) => {
   // ==================== RUTAS PÚBLICAS ====================
   const publicPaths = [
     "/",
+    "/about",
+    "/contact",
+    "/sign-in",
+    "/sign-up",
+    "/access-denied",
+    "/error",
+    "/api/contact",
     "/api/calendar",
     "/api/activities",
     "/api/harvests",
-    "/sign-in",
-    "/sign-up",
-    "/about",
-    "/contact",
-    "/api/contact",
     "/api/bookings",
     "/api/messages",
+    "/api/admin/verify", // ← AÑADIDO: Permite que el endpoint de verificación sea accesible
   ];
 
-  // Si es ruta pública, permitir acceso
   if (publicPaths.some((path) => pathname.startsWith(path))) {
     console.log("[MIDDLEWARE] Public route - allowing access");
     console.log("=".repeat(50));
@@ -44,7 +45,7 @@ export default clerkMiddleware(async (auth, req) => {
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
     console.log("[MIDDLEWARE] Admin route detected");
 
-    // 1. Si no está autenticado, redirigir a login
+    // 1. No autenticado → login
     if (!userId) {
       console.log("[MIDDLEWARE] No user - redirecting to sign-in");
       console.log("=".repeat(50));
@@ -54,46 +55,51 @@ export default clerkMiddleware(async (auth, req) => {
       return NextResponse.redirect(signInUrl);
     }
 
-    // 2. Verificar si es admin
+    // 2. Verificar admin
     try {
-      // Import dinámico para evitar problemas de build
       const { createClerkClient } = await import("@clerk/nextjs/server");
       const clerk = createClerkClient({
         secretKey: process.env.CLERK_SECRET_KEY,
       });
 
       const user = await clerk.users.getUser(userId);
-      const userEmail = user.emailAddresses[0]?.emailAddress;
-      const adminEmail = process.env.ADMIN_EMAIL;
+      const userEmail = user.emailAddresses[0]?.emailAddress?.toLowerCase();
 
-      console.log(`[MIDDLEWARE] User email: ${userEmail}`);
-      console.log(`[MIDDLEWARE] Admin email: ${adminEmail}`);
+      // CORRECCIÓN: Manejar múltiples emails correctamente
+      const adminEmails = process.env.ADMIN_EMAIL?.split(",")
+        .map((email) => email.trim().toLowerCase())
+        .filter((email) => email.length > 0);
 
-      // Verificar si es admin
-      const isAdmin = userEmail === adminEmail;
+      console.log("[MIDDLEWARE] User email:", userEmail);
+      console.log("[MIDDLEWARE] Admin emails:", adminEmails);
+
+      if (!adminEmails || adminEmails.length === 0) {
+        console.error("[MIDDLEWARE] ADMIN_EMAIL not configured");
+        return NextResponse.redirect(
+          new URL("/error?code=config_error", req.url),
+        );
+      }
+
+      // CORRECCIÓN: Usar includes() en lugar de comparación directa
+      const isAdmin = adminEmails.includes(userEmail);
 
       if (!isAdmin) {
-        console.log(`[MIDDLEWARE] Access DENIED - not admin`);
+        console.log("[MIDDLEWARE] Access DENIED - not admin");
         console.log("=".repeat(50));
-
-        // Redirigir a acceso denegado
         return NextResponse.redirect(new URL("/access-denied", req.url));
       }
 
-      console.log(`[MIDDLEWARE] Access GRANTED - user is admin`);
+      console.log("[MIDDLEWARE] Access GRANTED - user is admin");
       console.log("=".repeat(50));
-
       return NextResponse.next();
     } catch (error) {
       console.error("[MIDDLEWARE] Error checking admin:", error);
       console.log("=".repeat(50));
-
       return NextResponse.redirect(new URL("/error?code=auth_failed", req.url));
     }
   }
 
   // ==================== OTRAS RUTAS PROTEGIDAS ====================
-  // Para rutas que requieren autenticación pero no son admin
   if (!userId) {
     console.log("[MIDDLEWARE] Protected route - redirecting to sign-in");
     console.log("=".repeat(50));
@@ -110,5 +116,5 @@ export default clerkMiddleware(async (auth, req) => {
 });
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|public/).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

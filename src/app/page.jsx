@@ -8,16 +8,6 @@ import AdminButton from "@/components/AdminButton";
 import Link from "next/link";
 import { useLanguage } from "@/components/LanguageContext";
 
-// Función para obtener texto en el idioma correcto
-const getText = (obj, language) => {
-  if (!obj) return "";
-  if (typeof obj === "string") return obj;
-  if (typeof obj === "object") {
-    return obj[language] || obj.ar || obj.fr || "";
-  }
-  return String(obj);
-};
-
 const textos = {
   ar: {
     title: "مزرعة المنصوري",
@@ -27,7 +17,6 @@ const textos = {
     upcomingActivities: "الأنشطة القادمة في المزرعة",
     seeAllActivities: "عرض جميع الأنشطة →",
     harvestStatus: "حالة المحاصيل الحالية",
-    seeCalendar: "عرض التقويم الكامل →",
     calendarTitle: "تقويم الأنشطة",
     howItWorks: "كيف تعمل؟",
     step1: "استشارة التقويم",
@@ -38,12 +27,9 @@ const textos = {
     step3Desc: "شارك وتعلم الزراعة المستدامة وخذ المنتجات الطازجة معك",
     ctaText: "أكثر من 500 عائلة شاركت في أنشطتنا هذا العام!",
     wantToParticipate: "أريد المشاركة",
-    reserveActivity: "احجز نشاطاً",
-    viewProducts: "عرض المنتجات",
     farmLocation: "موقع المزرعة",
     openingHours: "ساعات العمل",
     contactInformation: "معلومات الاتصال",
-    quickLinks: "روابط سريعة",
     loadingActivities: "جاري تحميل الأنشطة...",
     noFeaturedActivities: "لا توجد أنشطة حالياً",
     loadingHarvests: "جاري تحميل المحاصيل...",
@@ -72,8 +58,6 @@ const textos = {
       "Participez, apprenez l'agriculture durable et emportez des produits frais",
     ctaText: "Plus de 500 familles ont participé à nos activités cette année!",
     wantToParticipate: "Je veux participer",
-    reserveActivity: "Réserver une activité",
-    viewProducts: "Voir les produits",
     farmLocation: "Emplacement de la ferme",
     openingHours: "Horaires d'ouverture",
     contactInformation: "Informations de contact",
@@ -86,7 +70,6 @@ const textos = {
 };
 
 export default function HomePage() {
-  const [mounted, setMounted] = useState(false);
   const { language } = useLanguage();
 
   const [actividadesProximas, setActividadesProximas] = useState([]);
@@ -94,11 +77,7 @@ export default function HomePage() {
   const [loadingActivities, setLoadingActivities] = useState(true);
   const [loadingHarvests, setLoadingHarvests] = useState(true);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Fetch actividades (próximas 4)
+  // Fetch actividades
   useEffect(() => {
     const fetchActivities = async () => {
       try {
@@ -107,8 +86,6 @@ export default function HomePage() {
         if (response.ok) {
           const data = await response.json();
           setActividadesProximas(data.actividades || []);
-        } else {
-          console.error("Failed to fetch activities");
         }
       } catch (error) {
         console.error("Error fetching activities:", error);
@@ -120,7 +97,7 @@ export default function HomePage() {
     fetchActivities();
   }, []);
 
-  // Fetch cosechas (recientes 6)
+  // Fetch cosechas
   useEffect(() => {
     const fetchHarvests = async () => {
       try {
@@ -128,11 +105,7 @@ export default function HomePage() {
         const response = await fetch("/api/harvests");
         if (response.ok) {
           const data = await response.json();
-          // Tomar solo las primeras 6 cosechas más recientes
-          const recentHarvests = (data.harvests || []).slice(0, 6);
-          setCosechasActuales(recentHarvests);
-        } else {
-          console.error("Failed to fetch harvests");
+          setCosechasActuales((data.harvests || []).slice(0, 6));
         }
       } catch (error) {
         console.error("Error fetching harvests:", error);
@@ -144,130 +117,7 @@ export default function HomePage() {
     fetchHarvests();
   }, []);
 
-  // Durante SSR, usar francés como idioma por defecto
-  if (!mounted) {
-    const defaultT = textos["fr"];
-    return (
-      <div className="relative">
-        {/* Hero Section */}
-        <section className="relative h-[600px] bg-gradient-to-r from-[#2d5a27] to-emerald-800 overflow-hidden">
-          <div className="absolute inset-0 bg-black opacity-40"></div>
-          <div className="relative z-10 flex flex-col items-center justify-center h-full text-white text-center px-4">
-            <h1 className="text-5xl md:text-6xl font-bold mb-6">
-              {defaultT.title} <span className="text-yellow-400">🌱</span>
-            </h1>
-            <p className="text-xl md:text-2xl max-w-3xl mb-8">
-              {defaultT.subtitle}
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Link
-                href="/activities"
-                className="bg-[#2d5a27] text-white px-8 py-4 rounded-lg font-semibold hover:bg-green-800 transition text-lg"
-              >
-                {defaultT.seeActivities}
-              </Link>
-              <Link
-                href="/contacto"
-                className="bg-yellow-500 text-white px-8 py-4 rounded-lg font-semibold hover:bg-orange-500 transition text-lg"
-              >
-                {defaultT.contactNow}
-              </Link>
-            </div>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-[#e8f5e9] to-transparent"></div>
-        </section>
-
-        {/* Próximas Actividades - Placeholder */}
-        <section className="py-16 px-4 max-w-7xl mx-auto">
-          <div className="flex justify-between items-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-800">
-              {defaultT.upcomingActivities}
-            </h2>
-          </div>
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2d5a27] mx-auto"></div>
-            <p className="mt-4 text-gray-600">{defaultT.loadingActivities}</p>
-          </div>
-        </section>
-
-        {/* Estado de Cosechas - Placeholder */}
-        <section className="py-16 px-4 bg-emerald-50">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex justify-between items-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-800">
-                {defaultT.harvestStatus}
-              </h2>
-            </div>
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2d5a27] mx-auto"></div>
-              <p className="mt-4 text-gray-600">{defaultT.loadingHarvests}</p>
-            </div>
-          </div>
-        </section>
-
-        {/* Calendario de Actividades */}
-        <section className="py-16 px-4 max-w-7xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-12">
-            {defaultT.calendarTitle}
-          </h2>
-          <div className="bg-white rounded-xl shadow-lg p-4 h-64 flex items-center justify-center">
-            <p className="text-gray-500">
-              Calendrier en cours de chargement...
-            </p>
-          </div>
-        </section>
-
-        {/* Comment ça fonctionne ? */}
-        <section className="bg-[#2d5a27] text-white">
-          <div className="max-w-7xl mx-auto px-4 py-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
-              {defaultT.howItWorks}
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-              <div className="text-center">
-                <div className="text-5xl mb-4">📅</div>
-                <h3 className="text-xl font-bold mb-4">1. {defaultT.step1}</h3>
-                <p className="text-gray-200">{defaultT.step1Desc}</p>
-              </div>
-              <div className="text-center">
-                <div className="text-5xl mb-4">📝</div>
-                <h3 className="text-xl font-bold mb-4">2. {defaultT.step2}</h3>
-                <p className="text-gray-200">{defaultT.step2Desc}</p>
-              </div>
-              <div className="text-center">
-                <div className="text-5xl mb-4">👨‍🌾</div>
-                <h3 className="text-xl font-bold mb-4">3. {defaultT.step3}</h3>
-                <p className="text-gray-200">{defaultT.step3Desc}</p>
-              </div>
-            </div>
-            <div className="text-center mb-8">
-              <p className="text-xl mb-6">{defaultT.ctaText}</p>
-              <Link
-                href="/reservation"
-                className="inline-block bg-white text-[#2d5a27] px-8 py-4 rounded-lg font-bold text-lg hover:bg-gray-100 transition"
-              >
-                {defaultT.wantToParticipate}
-              </Link>
-            </div>
-          </div>
-        </section>
-      </div>
-    );
-  }
-
-  // Solo el cliente continúa aquí después de la hidratación
-  const t = textos[language];
-
-  // Procesar actividades
-  const actividadesProcesadas = actividadesProximas.map((actividad) => ({
-    ...actividad,
-    titulo: getText(actividad.titulo, language),
-    descripcion: getText(actividad.descripcion, language),
-    fecha: getText(actividad.fecha, language),
-    duracion: getText(actividad.duracion, language),
-    nivel: getText(actividad.nivel, language),
-    enlace: `/reservation?activity=${actividad.id}`,
-  }));
+  const t = textos[language] || textos.fr;
 
   return (
     <div className="relative">
@@ -294,8 +144,6 @@ export default function HomePage() {
             </Link>
           </div>
         </div>
-
-        {/* Elementos decorativos */}
         <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-[#e8f5e9] to-transparent"></div>
       </section>
 
@@ -312,7 +160,7 @@ export default function HomePage() {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2d5a27] mx-auto"></div>
             <p className="mt-4 text-gray-600">{t.loadingActivities}</p>
           </div>
-        ) : actividadesProcesadas.length === 0 ? (
+        ) : actividadesProximas.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-xl text-gray-500">{t.noFeaturedActivities}</p>
             <Link
@@ -325,12 +173,10 @@ export default function HomePage() {
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-8">
-              {actividadesProcesadas.map((actividad) => (
+              {actividadesProximas.map((actividad) => (
                 <ActividadCard key={actividad.id} actividad={actividad} />
               ))}
             </div>
-
-            {/* Botón para ver más actividades */}
             <div className="text-center mt-12">
               <Link
                 href="/activities"
@@ -379,51 +225,14 @@ export default function HomePage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
               {cosechasActuales.map((cosecha) => (
-                <div key={cosecha.id} className="h-full">
-                  <div className="bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition-shadow h-full flex flex-col">
-                    {/* Icono y título */}
-                    <div className="flex items-start mb-3">
-                      <div className="text-3xl mr-3 flex-shrink-0">
-                        {cosecha.icon || "🌱"}
-                      </div>
-                      <div className="flex-grow">
-                        <h3 className="font-bold text-gray-800">
-                          {language === "ar"
-                            ? cosecha.productAr
-                            : cosecha.productFr}
-                        </h3>
-                      </div>
-                    </div>
-
-                    {/* Estado */}
-                    <div className="mb-3">
-                      <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        {language === "ar"
-                          ? cosecha.statusAr || "غير محدد"
-                          : cosecha.statusFr || "Non spécifié"}
-                      </span>
-                    </div>
-
-                    {/* Detalles */}
-                    <div className="space-y-2 text-sm flex-grow">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">
-                          {language === "ar" ? "الموسم" : "Saison"}
-                        </span>
-                        <span className="font-medium">
-                          {cosecha.season || "N/A"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <CosechaCard key={cosecha.id} cosecha={cosecha} />
               ))}
             </div>
           )}
         </div>
       </section>
 
-      {/* Calendario de Actividades */}
+      {/* Calendario */}
       <section className="py-16 px-4 max-w-7xl mx-auto">
         <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-12">
           {t.calendarTitle}
@@ -444,13 +253,11 @@ export default function HomePage() {
               <h3 className="text-xl font-bold mb-4">1. {t.step1}</h3>
               <p className="text-gray-200">{t.step1Desc}</p>
             </div>
-
             <div className="text-center">
               <div className="text-5xl mb-4">📝</div>
               <h3 className="text-xl font-bold mb-4">2. {t.step2}</h3>
               <p className="text-gray-200">{t.step2Desc}</p>
             </div>
-
             <div className="text-center">
               <div className="text-5xl mb-4">👨‍🌾</div>
               <h3 className="text-xl font-bold mb-4">3. {t.step3}</h3>
@@ -476,14 +283,12 @@ export default function HomePage() {
                 <p className="text-gray-200">Village Vert, Valence</p>
                 <p className="text-gray-200">Code Postal: 46100</p>
               </div>
-
               <div>
                 <h3 className="text-xl font-bold mb-4">{t.openingHours}</h3>
                 <p className="text-gray-200">Lundi - Vendredi: 9h - 18h</p>
                 <p className="text-gray-200">Samedi: 10h - 14h</p>
                 <p className="text-gray-200">Dimanche: Fermé</p>
               </div>
-
               <div>
                 <h3 className="text-xl font-bold mb-4">
                   {t.contactInformation}
