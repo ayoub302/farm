@@ -6,17 +6,9 @@
   "framework": "nextjs",
   "regions": ["iad1"],
   "env": {
-    "DATABASE_URL": {
-      "description": "PostgreSQL connection string from Neon"
-    },
-    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": {
-      "description": "Clerk publishable key"
-    },
-    "CLERK_SECRET_KEY": {
-      "description": "Clerk secret key"
-    },
-    "ADMIN_EMAIL": {
-      "description": "Admin email for notifications"
-    }
+    "DATABASE_URL": "postgresql://neondb_owner:npg_ht7uDT9IoPiS@ep-aged-heart-ag2vd0wb-pooler.c-2.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
+    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_ZmxleGlibGUtZGVlci03Ni5jbGVyay5hY2NvdW50cy5kZXYk",
+    "CLERK_SECRET_KEY": "sk_test_MlYf4yW0VGpuK0vNKdc49BsjdJci2O3aBQblQFLYNb",
+    "ADMIN_EMAIL": "ayoub2004.bensaid.123@gmail.com,n_bachiri@hotmail.com"
   }
 }
