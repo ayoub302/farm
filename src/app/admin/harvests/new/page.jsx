@@ -8,13 +8,10 @@ import {
   ArrowLeft,
   Save,
   X,
-  Upload,
   Calendar,
-  Package,
-  DollarSign,
-  Sprout,
   Info,
   CheckCircle,
+  ChevronLeft,
 } from "lucide-react";
 
 export default function CreateHarvestPage() {
@@ -139,14 +136,6 @@ export default function CreateHarvestPage() {
   };
 
   // Formatear fecha para el input date
-  const getTodayDate = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, "0");
-    const day = String(today.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  };
-
   const getMinDate = () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -158,39 +147,42 @@ export default function CreateHarvestPage() {
 
   return (
     <AdminGuard>
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-6">
+      <div className="min-h-screen bg-gray-50 py-4 sm:py-6 lg:py-8">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8">
+          {/* Header optimizado para móvil */}
+          <div className="mb-6 sm:mb-8">
+            <div className="flex items-start sm:items-center justify-between mb-4 sm:mb-6">
               <div className="flex items-center">
                 <Link
                   href="/admin/harvests"
-                  className="flex items-center text-gray-600 hover:text-gray-900 mr-4"
+                  className="flex items-center text-gray-600 hover:text-gray-900 mr-3 sm:mr-4 p-1.5 -ml-1.5 sm:p-0 sm:ml-0"
+                  aria-label="Back to Harvests"
                 >
-                  <ArrowLeft className="w-5 h-5 mr-2" />
-                  Back to Harvests
+                  <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+                  <span className="hidden sm:inline ml-2">
+                    Back to Harvests
+                  </span>
                 </Link>
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900">
+                <div className="min-w-0">
+                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 truncate">
                     Create New Harvest
                   </h1>
-                  <p className="text-gray-600 mt-1">
+                  <p className="text-gray-600 mt-1 text-sm sm:text-base truncate">
                     Add a new harvest product to your farm
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Info Card */}
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+            {/* Info Card optimizado para móvil */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4 mb-4 sm:mb-6">
               <div className="flex items-start">
-                <Info className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
-                <div>
-                  <h3 className="font-medium text-blue-900 mb-1">
+                <Info className="w-5 h-5 text-blue-600 mt-0.5 mr-2 sm:mr-3 flex-shrink-0" />
+                <div className="min-w-0">
+                  <h3 className="font-medium text-blue-900 mb-1 text-sm sm:text-base">
                     Harvest Information
                   </h3>
-                  <p className="text-sm text-blue-700">
+                  <p className="text-xs sm:text-sm text-blue-700">
                     Harvests will appear on the public calendar and can be
                     linked to activities. Make sure to provide information in
                     both Arabic and French.
@@ -201,36 +193,39 @@ export default function CreateHarvestPage() {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-8">
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-4 sm:space-y-6 lg:space-y-8"
+          >
             {/* Error and Success Messages */}
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-3 sm:px-4 py-2 sm:py-3 rounded-lg">
                 <div className="flex items-center">
-                  <X className="w-5 h-5 mr-2" />
-                  {error}
+                  <X className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2 flex-shrink-0" />
+                  <span className="text-sm sm:text-base">{error}</span>
                 </div>
               </div>
             )}
 
             {success && (
-              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+              <div className="bg-green-50 border border-green-200 text-green-700 px-3 sm:px-4 py-2 sm:py-3 rounded-lg">
                 <div className="flex items-center">
-                  <CheckCircle className="w-5 h-5 mr-2" />
-                  {success}
+                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2 flex-shrink-0" />
+                  <span className="text-sm sm:text-base">{success}</span>
                 </div>
               </div>
             )}
 
             {/* Basic Information Card */}
-            <div className="bg-white rounded-xl shadow p-6">
-              <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-                <Sprout className="w-5 h-5 mr-2 text-green-600" />
+            <div className="bg-white rounded-xl shadow p-4 sm:p-6">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-6 flex items-center">
+                <span className="text-green-600 mr-2">🌱</span>
                 Basic Information
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 {/* Product Name - Arabic */}
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Product Name (Arabic) *
                   </label>
@@ -239,14 +234,15 @@ export default function CreateHarvestPage() {
                     name="productAr"
                     value={formData.productAr}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="اسم المنتج بالعربية"
                     required
+                    dir="rtl"
                   />
                 </div>
 
                 {/* Product Name - French */}
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Product Name (French) *
                   </label>
@@ -255,18 +251,18 @@ export default function CreateHarvestPage() {
                     name="productFr"
                     value={formData.productFr}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="Nom du produit en français"
                     required
                   />
                 </div>
 
-                {/* Icon */}
-                <div>
+                {/* Icon Selector */}
+                <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Icon
                   </label>
-                  <div className="grid grid-cols-6 gap-2">
+                  <div className="grid grid-cols-5 sm:grid-cols-6 gap-1.5 sm:gap-2">
                     {iconOptions.map((icon) => (
                       <button
                         key={icon.value}
@@ -274,12 +270,13 @@ export default function CreateHarvestPage() {
                         onClick={() =>
                           setFormData((prev) => ({ ...prev, icon: icon.value }))
                         }
-                        className={`p-2 text-2xl rounded-lg border ${
+                        className={`p-1.5 sm:p-2 text-xl sm:text-2xl rounded-lg border flex items-center justify-center ${
                           formData.icon === icon.value
                             ? "border-green-500 bg-green-50"
                             : "border-gray-300 hover:border-gray-400"
                         }`}
                         title={icon.label}
+                        aria-label={`Select ${icon.label} icon`}
                       >
                         {icon.value}
                       </button>
@@ -290,65 +287,66 @@ export default function CreateHarvestPage() {
                     name="icon"
                     value={formData.icon}
                     onChange={handleChange}
-                    className="mt-2 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="mt-2 w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="Emoji icon"
                   />
                 </div>
 
-                {/* Season */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Season *
-                  </label>
-                  <select
-                    name="season"
-                    value={formData.season}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  >
-                    {seasonOptions.map((season) => (
-                      <option key={season.value} value={season.value}>
-                        {season.labelFr} / {season.labelAr}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {/* Season and Year */}
+                <div className="sm:col-span-2 grid grid-cols-2 gap-4 sm:gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Season *
+                    </label>
+                    <select
+                      name="season"
+                      value={formData.season}
+                      onChange={handleChange}
+                      className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    >
+                      {seasonOptions.map((season) => (
+                        <option key={season.value} value={season.value}>
+                          {season.labelFr}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                {/* Year */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Year *
-                  </label>
-                  <input
-                    type="number"
-                    name="year"
-                    value={formData.year}
-                    onChange={handleNumberChange}
-                    min="2024"
-                    max="2030"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
-                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Year *
+                    </label>
+                    <input
+                      type="number"
+                      name="year"
+                      value={formData.year}
+                      onChange={handleNumberChange}
+                      min="2024"
+                      max="2030"
+                      className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
                 </div>
 
                 {/* Next Harvest Date */}
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Next Harvest Date *
                   </label>
                   <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
                     <input
                       type="date"
                       name="nextHarvest"
                       value={formData.nextHarvest}
                       onChange={handleChange}
                       min={getMinDate()}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                       required
                     />
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-xs sm:text-sm text-gray-500 mt-1">
                     Select a future date for the next harvest
                   </p>
                 </div>
@@ -356,13 +354,13 @@ export default function CreateHarvestPage() {
             </div>
 
             {/* Status and Availability Card */}
-            <div className="bg-white rounded-xl shadow p-6">
-              <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-                <Info className="w-5 h-5 mr-2 text-blue-600" />
+            <div className="bg-white rounded-xl shadow p-4 sm:p-6">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-6 flex items-center">
+                <Info className="w-5 h-5 text-blue-600 mr-2" />
                 Status & Availability
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 {/* Status - Arabic */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -373,8 +371,9 @@ export default function CreateHarvestPage() {
                     name="statusAr"
                     value={formData.statusAr}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="الحالة بالعربية"
+                    dir="rtl"
                   />
                 </div>
 
@@ -388,7 +387,7 @@ export default function CreateHarvestPage() {
                     name="statusFr"
                     value={formData.statusFr}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="Statut en français"
                   />
                 </div>
@@ -403,8 +402,9 @@ export default function CreateHarvestPage() {
                     name="availabilityAr"
                     value={formData.availabilityAr}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="التوفر بالعربية"
+                    dir="rtl"
                   />
                 </div>
 
@@ -418,13 +418,13 @@ export default function CreateHarvestPage() {
                     name="availabilityFr"
                     value={formData.availabilityFr}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="Disponibilité en français"
                   />
                 </div>
 
                 {/* Active Status */}
-                <div className="md:col-span-2">
+                <div className="sm:col-span-2 mt-2">
                   <label className="flex items-center">
                     <input
                       type="checkbox"
@@ -442,12 +442,12 @@ export default function CreateHarvestPage() {
             </div>
 
             {/* Description Card */}
-            <div className="bg-white rounded-xl shadow p-6">
-              <h2 className="text-xl font-semibold text-gray-800 mb-6">
+            <div className="bg-white rounded-xl shadow p-4 sm:p-6">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-6">
                 Description
               </h2>
 
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {/* Description - Arabic */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -457,8 +457,8 @@ export default function CreateHarvestPage() {
                     name="descriptionAr"
                     value={formData.descriptionAr}
                     onChange={handleChange}
-                    rows="4"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    rows="3"
+                    className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="وصف المنتج بالعربية"
                     dir="rtl"
                   />
@@ -473,8 +473,8 @@ export default function CreateHarvestPage() {
                     name="descriptionFr"
                     value={formData.descriptionFr}
                     onChange={handleChange}
-                    rows="4"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    rows="3"
+                    className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="Description du produit en français"
                   />
                 </div>
@@ -482,32 +482,32 @@ export default function CreateHarvestPage() {
             </div>
 
             {/* Form Actions */}
-            <div className="bg-white rounded-xl shadow p-6">
+            <div className="bg-white rounded-xl shadow p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
-                <div className="text-sm text-gray-500">
+                <div className="text-xs sm:text-sm text-gray-500">
                   All fields marked with * are required
                 </div>
-                <div className="flex space-x-4">
+                <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
                   <Link
                     href="/admin/harvests"
-                    className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                    className="px-4 sm:px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-center text-sm sm:text-base"
                   >
                     Cancel
                   </Link>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                    className="px-4 sm:px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm sm:text-base"
                   >
                     {loading ? (
                       <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Creating...
+                        <div className="animate-spin rounded-full h-3.5 w-3.5 sm:h-4 sm:w-4 border-b-2 border-white mr-1.5 sm:mr-2"></div>
+                        <span>Creating...</span>
                       </>
                     ) : (
                       <>
-                        <Save className="w-4 h-4 mr-2" />
-                        Create Harvest
+                        <span className="mr-1.5 sm:mr-2">✓</span>
+                        <span>Create Harvest</span>
                       </>
                     )}
                   </button>
@@ -516,72 +516,130 @@ export default function CreateHarvestPage() {
             </div>
           </form>
 
-          {/* Preview Card */}
-          <div className="mt-8 bg-gradient-to-r from-green-50 to-emerald-100 rounded-xl shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+          {/* Preview Card - Movido arriba en móvil, más compacto */}
+          <div className="mt-6 sm:mt-8 bg-gradient-to-r from-green-50 to-emerald-100 rounded-xl shadow p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-3 sm:mb-4">
               Preview
             </h2>
-            <div className="bg-white rounded-lg p-4 border">
-              <div className="flex items-center mb-4">
-                <span className="text-2xl mr-3">{formData.icon}</span>
-                <div>
-                  <h3 className="font-semibold text-gray-800">
-                    {formData.productFr}
+            <div className="bg-white rounded-lg p-3 sm:p-4 border">
+              <div className="flex items-center mb-3 sm:mb-4">
+                <span className="text-2xl sm:text-3xl mr-2 sm:mr-3">
+                  {formData.icon}
+                </span>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-gray-800 text-sm sm:text-base truncate">
+                    {formData.productFr || "Product Name"}
                   </h3>
-                  <p className="text-sm text-gray-600">{formData.productAr}</p>
+                  <p className="text-xs sm:text-sm text-gray-600 truncate">
+                    {formData.productAr || "اسم المنتج"}
+                  </p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 text-xs sm:text-sm">
                 <div>
-                  <span className="text-gray-500">Status:</span>
-                  <span className="ml-2 font-medium">{formData.statusFr}</span>
+                  <span className="text-gray-500 block">Status:</span>
+                  <span className="font-medium truncate block">
+                    {formData.statusFr || "Disponible"}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Season:</span>
-                  <span className="ml-2 font-medium">
+                  <span className="text-gray-500 block">Season:</span>
+                  <span className="font-medium truncate block">
                     {formData.season} {formData.year}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Next Harvest:</span>
-                  <span className="ml-2 font-medium">
+                  <span className="text-gray-500 block">Next Harvest:</span>
+                  <span className="font-medium truncate block">
                     {formData.nextHarvest
-                      ? new Date(formData.nextHarvest).toLocaleDateString()
+                      ? new Date(formData.nextHarvest).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                          },
+                        )
                       : "Not set"}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Availability:</span>
-                  <span className="ml-2 font-medium">
-                    {formData.availabilityFr}
+                  <span className="text-gray-500 block">Availability:</span>
+                  <span className="font-medium truncate block">
+                    {formData.availabilityFr || "Disponible"}
                   </span>
                 </div>
               </div>
-              {formData.descriptionFr && (
-                <div className="mt-4 pt-4 border-t">
-                  <h4 className="text-sm font-medium text-gray-700 mb-1">
+
+              {(formData.descriptionFr || formData.descriptionAr) && (
+                <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t">
+                  <h4 className="text-xs sm:text-sm font-medium text-gray-700 mb-1">
                     Description:
                   </h4>
-                  <p className="text-sm text-gray-600">
-                    {formData.descriptionFr}
+                  <p className="text-xs sm:text-sm text-gray-600 line-clamp-2">
+                    {formData.descriptionFr ||
+                      formData.descriptionAr ||
+                      "No description"}
                   </p>
                 </div>
               )}
-              <div className="mt-4 pt-4 border-t">
+
+              <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t">
                 <div className="flex items-center">
                   <div
                     className={`h-2 w-2 rounded-full mr-2 ${formData.isActive ? "bg-green-500" : "bg-red-500"}`}
                   ></div>
                   <span
-                    className={`text-sm font-medium ${formData.isActive ? "text-green-600" : "text-red-600"}`}
+                    className={`text-xs sm:text-sm font-medium ${formData.isActive ? "text-green-600" : "text-red-600"}`}
                   >
-                    {formData.isActive ? "Active" : "Inactive"}
+                    {formData.isActive
+                      ? "Active • Visible to public"
+                      : "Inactive • Hidden"}
                   </span>
                 </div>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Botón flotante para móviles */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-3 sm:hidden z-10">
+          <div className="max-w-4xl mx-auto flex justify-between items-center">
+            <Link
+              href="/admin/harvests"
+              className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm"
+            >
+              Cancel
+            </Link>
+            <button
+              type="submit"
+              onClick={handleSubmit}
+              disabled={loading}
+              className="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white mr-1.5"></div>
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <span className="mr-1.5">✓</span>
+                  Create Harvest
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Añadir padding bottom para evitar que el botón flotante tape el contenido */}
+        <style jsx global>{`
+          @media (max-width: 640px) {
+            .min-h-screen {
+              padding-bottom: 80px;
+            }
+          }
+        `}</style>
       </div>
     </AdminGuard>
   );

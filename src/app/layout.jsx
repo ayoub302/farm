@@ -32,7 +32,11 @@ export default function RootLayout({ children }) {
       signUpUrl="/sign-up"
       afterSignOutUrl="/"
     >
-      <html lang="fr" dir="ltr">
+      <html lang="fr">
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+        </head>
+
         <body
           className={`${inter.className} bg-[#e8f5e9] min-h-screen flex flex-col`}
         >

@@ -3,7 +3,13 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { ArrowLeft, Save, Loader2, AlertCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  Loader2,
+  AlertCircle,
+  ChevronLeft,
+} from "lucide-react";
 import AdminGuard from "@/components/AdminGuard";
 
 export default function EditHarvestPage() {
@@ -153,13 +159,18 @@ export default function EditHarvestPage() {
   ];
 
   // Temporadas
-  const seasons = ["Spring", "Summer", "Autumn", "Winter"];
+  const seasons = ["Spring", "Summer", "Autumn", "Winter", "All Year"];
 
   if (loading) {
     return (
       <AdminGuard>
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-green-600 mx-auto" />
+            <p className="mt-4 text-gray-600 text-sm sm:text-base">
+              Loading harvest...
+            </p>
+          </div>
         </div>
       </AdminGuard>
     );
@@ -168,28 +179,28 @@ export default function EditHarvestPage() {
   if (error && !harvest) {
     return (
       <AdminGuard>
-        <div className="min-h-screen bg-gray-50 py-8">
-          <div className="max-w-4xl mx-auto px-4">
+        <div className="min-h-screen bg-gray-50 py-4 sm:py-6 lg:py-8">
+          <div className="max-w-4xl mx-auto px-3 sm:px-4">
             <button
               onClick={() => router.push("/admin/harvests")}
-              className="flex items-center text-gray-600 hover:text-gray-900 mb-8"
+              className="flex items-center text-gray-600 hover:text-gray-900 mb-6 p-1.5 -ml-1.5"
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Harvests
+              <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+              <span className="ml-1 hidden sm:inline">Back to Harvests</span>
             </button>
 
-            <div className="bg-white rounded-xl shadow p-8 text-center">
-              <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            <div className="bg-white rounded-xl shadow p-4 sm:p-6 lg:p-8 text-center">
+              <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-500 mx-auto mb-3 sm:mb-4" />
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">
                 {error || "Harvest Not Found"}
               </h2>
-              <p className="text-gray-600 mb-6">
+              <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">
                 Cannot edit this harvest because it doesn&apos;t exist or has
                 been deleted.
               </p>
               <button
                 onClick={() => router.push("/admin/harvests")}
-                className="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition"
+                className="bg-green-600 text-white px-4 py-3 sm:px-6 sm:py-3 rounded-lg font-semibold hover:bg-green-700 transition text-sm sm:text-base w-full sm:w-auto"
               >
                 Return to Harvests List
               </button>
@@ -202,65 +213,81 @@ export default function EditHarvestPage() {
 
   return (
     <AdminGuard>
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4">
-          {/* Header */}
-          <div className="mb-8">
-            <button
-              onClick={() => router.push(`/admin/harvests/${params.id}`)}
-              className="flex items-center text-gray-600 hover:text-gray-900 mb-6"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Harvest Details
-            </button>
-
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold text-gray-900">Edit Harvest</h1>
-              <p className="text-gray-600 mt-1">Update harvest information</p>
+      <div className="min-h-screen bg-gray-50 py-4 sm:py-6 lg:py-8">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4">
+          {/* Header optimizado para móvil */}
+          <div className="mb-6 sm:mb-8">
+            <div className="flex items-center mb-4 sm:mb-6">
+              <button
+                onClick={() => router.push(`/admin/harvests/${params.id}`)}
+                className="flex items-center text-gray-600 hover:text-gray-900 mr-3 p-1.5 -ml-1.5 sm:p-0 sm:ml-0"
+              >
+                <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+                <span className="ml-1 hidden sm:inline text-sm sm:text-base">
+                  Back to Details
+                </span>
+              </button>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 truncate">
+                  Edit Harvest
+                </h1>
+                <p className="text-gray-600 mt-1 text-xs sm:text-sm truncate">
+                  Update harvest information • ID: {params.id?.slice(0, 8)}...
+                </p>
+              </div>
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-3 sm:px-4 py-2 sm:py-3 rounded-lg mb-4 sm:mb-6">
                 <div className="flex items-center">
-                  <AlertCircle className="w-5 h-5 mr-2" />
-                  <span>{error}</span>
+                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2 flex-shrink-0" />
+                  <span className="text-sm sm:text-base">{error}</span>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Form */}
+          {/* Formulario optimizado para móvil */}
           <form
             onSubmit={handleSubmit}
-            className="bg-white rounded-xl shadow p-6"
+            className="bg-white rounded-xl shadow p-3 sm:p-4 lg:p-6"
           >
-            <div className="space-y-6">
-              {/* Icon Selection */}
+            <div className="space-y-4 sm:space-y-6">
+              {/* Icon Selection optimizado */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Icon
                 </label>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
                   {icons.map((icon) => (
                     <button
                       type="button"
                       key={icon}
                       onClick={() => setFormData((prev) => ({ ...prev, icon }))}
-                      className={`text-2xl p-3 rounded-lg border-2 transition ${
+                      className={`text-xl sm:text-2xl p-1.5 sm:p-2 rounded-lg border transition ${
                         formData.icon === icon
-                          ? "border-green-500 bg-green-50"
+                          ? "border-green-500 bg-green-50 scale-105"
                           : "border-gray-200 hover:border-gray-300"
                       }`}
+                      aria-label={`Select ${icon} icon`}
                     >
                       {icon}
                     </button>
                   ))}
                 </div>
+                <input
+                  type="text"
+                  name="icon"
+                  value={formData.icon}
+                  onChange={handleChange}
+                  className="mt-2 w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Custom icon emoji"
+                />
               </div>
 
-              {/* Product Names */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
+              {/* Product Names optimizado */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Product Name (French) *
                   </label>
@@ -270,12 +297,12 @@ export default function EditHarvestPage() {
                     value={formData.productFr}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="e.g., Pommes"
                   />
                 </div>
 
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Product Name (Arabic) *
                   </label>
@@ -285,14 +312,15 @@ export default function EditHarvestPage() {
                     value={formData.productAr}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-right"
+                    dir="rtl"
+                    className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="e.g., تفاح"
                   />
                 </div>
               </div>
 
-              {/* Season and Year */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Season and Year optimizado */}
+              <div className="grid grid-cols-2 gap-4 sm:gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Season *
@@ -302,7 +330,7 @@ export default function EditHarvestPage() {
                     value={formData.season}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   >
                     {seasons.map((season) => (
                       <option key={season} value={season}>
@@ -324,12 +352,12 @@ export default function EditHarvestPage() {
                     min="2020"
                     max="2030"
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   />
                 </div>
               </div>
 
-              {/* Next Harvest Date */}
+              {/* Next Harvest Date optimizado */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Next Harvest Date *
@@ -340,12 +368,12 @@ export default function EditHarvestPage() {
                   value={formData.nextHarvest}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
 
-              {/* Status (Available) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Status optimizado */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Status (French)
@@ -355,7 +383,7 @@ export default function EditHarvestPage() {
                     name="statusFr"
                     value={formData.statusFr}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="e.g., Disponible"
                   />
                 </div>
@@ -369,14 +397,15 @@ export default function EditHarvestPage() {
                     name="statusAr"
                     value={formData.statusAr}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-right"
+                    dir="rtl"
+                    className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="e.g., متوفر"
                   />
                 </div>
               </div>
 
-              {/* Availability */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Availability optimizado */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Availability (French)
@@ -386,7 +415,7 @@ export default function EditHarvestPage() {
                     name="availabilityFr"
                     value={formData.availabilityFr}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="e.g., Disponible pour récolte"
                   />
                 </div>
@@ -400,14 +429,15 @@ export default function EditHarvestPage() {
                     name="availabilityAr"
                     value={formData.availabilityAr}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-right"
+                    dir="rtl"
+                    className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="e.g., متاح للحصاد"
                   />
                 </div>
               </div>
 
-              {/* Descriptions */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Descriptions optimizado */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Description (French)
@@ -416,8 +446,8 @@ export default function EditHarvestPage() {
                     name="descriptionFr"
                     value={formData.descriptionFr}
                     onChange={handleChange}
-                    rows="4"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    rows="3"
+                    className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="Describe the harvest in French..."
                   />
                 </div>
@@ -430,61 +460,102 @@ export default function EditHarvestPage() {
                     name="descriptionAr"
                     value={formData.descriptionAr}
                     onChange={handleChange}
-                    rows="4"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-right"
+                    rows="3"
+                    dir="rtl"
+                    className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="Describe the harvest in Arabic..."
                   />
                 </div>
               </div>
 
-              {/* Active Status */}
-              <div className="flex items-center">
+              {/* Active Status optimizado */}
+              <div className="flex items-center p-3 bg-gray-50 rounded-lg">
                 <input
                   type="checkbox"
                   id="isActive"
                   name="isActive"
                   checked={formData.isActive}
                   onChange={handleChange}
-                  className="h-4 w-4 text-green-600 rounded focus:ring-green-500"
+                  className="h-5 w-5 text-green-600 rounded focus:ring-green-500"
                 />
                 <label
                   htmlFor="isActive"
-                  className="ml-2 text-sm text-gray-700"
+                  className="ml-3 text-sm text-gray-700"
                 >
                   This harvest is currently active and visible to users
                 </label>
               </div>
             </div>
 
-            {/* Submit Buttons */}
-            <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-end">
+            {/* Submit Buttons optimizado */}
+            <div className="mt-6 sm:mt-8 flex flex-col-reverse sm:flex-row gap-3 sm:gap-4">
               <button
                 type="button"
                 onClick={() => router.push(`/admin/harvests/${params.id}`)}
-                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition"
+                className="px-4 sm:px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition text-sm sm:text-base order-2 sm:order-1"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="flex items-center justify-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]"
+                className="flex items-center justify-center gap-2 bg-green-600 text-white px-4 sm:px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base order-1 sm:order-2"
               >
                 {saving ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Saving...
+                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                    <span>Saving...</span>
                   </>
                 ) : (
                   <>
-                    <Save className="w-5 h-5" />
-                    Save Changes
+                    <Save className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span>Save Changes</span>
                   </>
                 )}
               </button>
             </div>
           </form>
         </div>
+
+        {/* Botón flotante para móviles */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-3 sm:hidden z-10">
+          <div className="max-w-4xl mx-auto flex justify-between items-center">
+            <button
+              type="button"
+              onClick={() => router.push(`/admin/harvests/${params.id}`)}
+              className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              onClick={handleSubmit}
+              disabled={saving}
+              className="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-3.5 h-3.5 mr-1.5" />
+                  Save
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Añadir padding bottom para evitar que el botón flotante tape el contenido */}
+        <style jsx global>{`
+          @media (max-width: 640px) {
+            .min-h-screen {
+              padding-bottom: 80px;
+            }
+          }
+        `}</style>
       </div>
     </AdminGuard>
   );

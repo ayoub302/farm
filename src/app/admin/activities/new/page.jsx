@@ -286,7 +286,7 @@ export default function NewActivityPage() {
 
   if (!isLoaded) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2d5a27] mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading...</p>
@@ -297,10 +297,10 @@ export default function NewActivityPage() {
 
   if (!userId) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8">
-        <div className="text-center max-w-md">
-          <div className="bg-yellow-100 p-4 rounded-lg mb-6">
-            <AlertCircle className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+        <div className="text-center max-w-md w-full">
+          <div className="bg-yellow-100 p-6 rounded-xl mb-6">
+            <AlertCircle className="w-12 h-12 text-yellow-600 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-gray-800 mb-2">
               Authentication Required
             </h2>
@@ -310,7 +310,7 @@ export default function NewActivityPage() {
           </div>
           <Link
             href="/admin/dashboard"
-            className="inline-block bg-[#2d5a27] text-white px-6 py-3 rounded-lg hover:bg-green-800 transition"
+            className="inline-block w-full bg-[#2d5a27] text-white px-6 py-4 rounded-lg hover:bg-green-800 transition font-medium"
           >
             Back to Dashboard
           </Link>
@@ -322,21 +322,21 @@ export default function NewActivityPage() {
   return (
     <AdminGuard>
       <div className="min-h-screen bg-gray-50">
-        <header className="bg-white shadow">
+        <header className="bg-white shadow-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-6">
+            <div className="flex justify-between items-center py-4">
               <div className="flex items-center">
                 <Link
                   href="/admin/dashboard"
-                  className="mr-4 text-gray-600 hover:text-gray-900"
+                  className="mr-3 text-gray-600 hover:text-gray-900 p-2 -ml-2"
                 >
                   <ArrowLeft className="w-6 h-6" />
                 </Link>
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
                     Publish Activity
                   </h1>
-                  <p className="text-gray-600 mt-1">
+                  <p className="text-gray-600 mt-1 text-sm sm:text-base">
                     Create and publish new farm activities
                   </p>
                 </div>
@@ -345,18 +345,18 @@ export default function NewActivityPage() {
           </div>
         </header>
 
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 lg:px-8 py-6">
           {success && (
-            <div className="mb-6 bg-green-50 border border-green-200 rounded-xl p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-green-100 rounded-lg mr-4">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
+            <div className="mb-6 bg-green-50 border border-green-200 rounded-xl p-4 sm:p-6">
+              <div className="flex items-start">
+                <div className="p-2 bg-green-100 rounded-lg mr-3 sm:mr-4 flex-shrink-0">
+                  <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-green-800">
+                  <h3 className="font-semibold text-green-800 text-sm sm:text-base">
                     Activity Published Successfully!
                   </h3>
-                  <p className="text-green-600 text-sm mt-1">
+                  <p className="text-green-600 text-xs sm:text-sm mt-1">
                     Your activity has been published and is now visible on the
                     farm calendar.
                   </p>
@@ -366,29 +366,33 @@ export default function NewActivityPage() {
           )}
 
           {errors.submit && (
-            <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-6">
-              <div className="flex items-center">
-                <AlertCircle className="w-6 h-6 text-red-600 mr-3" />
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 sm:p-6">
+              <div className="flex items-start">
+                <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600 mr-3 flex-shrink-0" />
                 <div>
-                  <h3 className="font-semibold text-red-800">Error</h3>
-                  <p className="text-red-600 text-sm mt-1">{errors.submit}</p>
+                  <h3 className="font-semibold text-red-800 text-sm sm:text-base">
+                    Error
+                  </h3>
+                  <p className="text-red-600 text-xs sm:text-sm mt-1">
+                    {errors.submit}
+                  </p>
                 </div>
               </div>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 space-y-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
+              <div className="lg:col-span-2 space-y-6">
                 {/* Activity Information */}
-                <div className="bg-white rounded-xl shadow p-6">
-                  <h2 className="text-xl font-semibold text-gray-800 mb-6 pb-3 border-b flex items-center">
-                    <Globe className="w-5 h-5 mr-2" />
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-6 pb-3 border-b flex items-center">
+                    <Globe className="w-5 h-5 mr-2 flex-shrink-0" />
                     Activity Information
                   </h2>
 
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4 sm:space-y-6">
+                    <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Title (French) *
@@ -398,7 +402,7 @@ export default function NewActivityPage() {
                           name="titleFr"
                           value={formData.titleFr}
                           onChange={handleChange}
-                          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent ${
+                          className={`w-full px-4 py-3 text-base sm:text-sm border rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent ${
                             errors.titleFr
                               ? "border-red-300"
                               : "border-gray-300"
@@ -422,7 +426,7 @@ export default function NewActivityPage() {
                           value={formData.titleAr}
                           onChange={handleChange}
                           dir="rtl"
-                          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent ${
+                          className={`w-full px-4 py-3 text-base sm:text-sm border rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent ${
                             errors.titleAr
                               ? "border-red-300"
                               : "border-gray-300"
@@ -437,7 +441,7 @@ export default function NewActivityPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Description (French) *
@@ -447,7 +451,7 @@ export default function NewActivityPage() {
                           value={formData.descriptionFr}
                           onChange={handleChange}
                           rows={4}
-                          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent ${
+                          className={`w-full px-4 py-3 text-base sm:text-sm border rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent ${
                             errors.descriptionFr
                               ? "border-red-300"
                               : "border-gray-300"
@@ -471,7 +475,7 @@ export default function NewActivityPage() {
                           onChange={handleChange}
                           rows={4}
                           dir="rtl"
-                          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent ${
+                          className={`w-full px-4 py-3 text-base sm:text-sm border rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent ${
                             errors.descriptionAr
                               ? "border-red-300"
                               : "border-gray-300"
@@ -491,31 +495,31 @@ export default function NewActivityPage() {
                         <Tag className="w-4 h-4 inline mr-2" />
                         Category (Select to change image)
                       </label>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                         {categories.map((cat) => (
                           <button
                             key={cat.value}
                             type="button"
                             onClick={() => handleCategoryChange(cat)}
-                            className={`p-3 rounded-lg border text-center transition flex flex-col items-center ${
+                            className={`p-3 rounded-lg border text-center transition flex flex-col items-center min-h-[100px] sm:min-h-0 ${
                               formData.category === cat.value
                                 ? `${cat.color} ${cat.borderColor} ring-2 ring-offset-2 ring-[#2d5a27]`
                                 : "bg-gray-50 border-gray-200 hover:bg-gray-100"
                             }`}
                           >
-                            <div className="relative w-10 h-10 mb-2">
+                            <div className="relative w-8 h-8 sm:w-10 sm:h-10 mb-2">
                               <Image
                                 src={cat.image}
                                 alt={cat.label}
                                 fill
                                 className="object-contain"
-                                sizes="40px"
+                                sizes="(max-width: 640px) 32px, 40px"
                               />
                             </div>
-                            <span className="font-medium text-sm">
+                            <span className="font-medium text-xs sm:text-sm">
                               {cat.label}
                             </span>
-                            <span className="text-xs text-gray-500 mt-1">
+                            <span className="text-xs text-gray-500 mt-1 hidden sm:block">
                               {cat.description}
                             </span>
                           </button>
@@ -526,14 +530,14 @@ export default function NewActivityPage() {
                 </div>
 
                 {/* Schedule & Location */}
-                <div className="bg-white rounded-xl shadow p-6">
-                  <h2 className="text-xl font-semibold text-gray-800 mb-6 pb-3 border-b flex items-center">
-                    <Calendar className="w-5 h-5 mr-2" />
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-6 pb-3 border-b flex items-center">
+                    <Calendar className="w-5 h-5 mr-2 flex-shrink-0" />
                     Schedule & Location
                   </h2>
 
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4 sm:space-y-6">
+                    <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           <Calendar className="w-4 h-4 inline mr-2" />
@@ -544,7 +548,7 @@ export default function NewActivityPage() {
                           name="date"
                           value={formData.date}
                           onChange={handleChange}
-                          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent ${
+                          className={`w-full px-4 py-3 text-base sm:text-sm border rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent ${
                             errors.date ? "border-red-300" : "border-gray-300"
                           }`}
                         />
@@ -565,7 +569,7 @@ export default function NewActivityPage() {
                           name="endDate"
                           value={formData.endDate}
                           onChange={handleChange}
-                          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent ${
+                          className={`w-full px-4 py-3 text-base sm:text-sm border rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent ${
                             errors.endDate
                               ? "border-red-300"
                               : "border-gray-300"
@@ -579,7 +583,7 @@ export default function NewActivityPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           <Clock className="w-4 h-4 inline mr-2" />
@@ -592,7 +596,7 @@ export default function NewActivityPage() {
                           onChange={handleChange}
                           min="1"
                           max="24"
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent"
+                          className="w-full px-4 py-3 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent"
                         />
                       </div>
 
@@ -606,7 +610,7 @@ export default function NewActivityPage() {
                           name="location"
                           value={formData.location}
                           onChange={handleChange}
-                          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent ${
+                          className={`w-full px-4 py-3 text-base sm:text-sm border rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent ${
                             errors.location
                               ? "border-red-300"
                               : "border-gray-300"
@@ -624,12 +628,12 @@ export default function NewActivityPage() {
                 </div>
 
                 {/* Additional Information */}
-                <div className="bg-white rounded-xl shadow p-6">
-                  <h2 className="text-xl font-semibold text-gray-800 mb-6 pb-3 border-b">
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-6 pb-3 border-b">
                     Additional Information
                   </h2>
 
-                  <div className="space-y-6">
+                  <div className="space-y-4 sm:space-y-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         <FileText className="w-4 h-4 inline mr-2" />
@@ -640,7 +644,7 @@ export default function NewActivityPage() {
                         value={formData.requirements}
                         onChange={handleChange}
                         rows={3}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent"
+                        className="w-full px-4 py-3 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent"
                         placeholder="e.g., Age restrictions, physical requirements, previous experience..."
                       />
                     </div>
@@ -654,7 +658,7 @@ export default function NewActivityPage() {
                         value={formData.whatToBring}
                         onChange={handleChange}
                         rows={3}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent"
+                        className="w-full px-4 py-3 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent"
                         placeholder="e.g., Comfortable shoes, hat, water bottle, sunscreen..."
                       />
                     </div>
@@ -663,29 +667,30 @@ export default function NewActivityPage() {
               </div>
 
               {/* Right Column */}
-              <div className="space-y-8">
+              <div className="space-y-6">
                 {/* Image Preview */}
-                <div className="bg-white rounded-xl shadow p-6">
-                  <h2 className="text-xl font-semibold text-gray-800 mb-6 pb-3 border-b flex items-center">
-                    <ImageIcon className="w-5 h-5 mr-2" />
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-6 pb-3 border-b flex items-center">
+                    <ImageIcon className="w-5 h-5 mr-2 flex-shrink-0" />
                     Activity Image
                   </h2>
 
                   <div className="space-y-4">
                     <div className="relative">
-                      <div className="w-full h-48 relative bg-gradient-to-br from-green-50 to-emerald-100 rounded-lg overflow-hidden">
+                      <div className="w-full aspect-video sm:h-48 relative bg-gradient-to-br from-green-50 to-emerald-100 rounded-lg overflow-hidden">
                         <Image
                           src={formData.imageUrl}
                           alt={formData.category}
                           fill
                           className="object-contain p-4"
                           sizes="(max-width: 768px) 100vw, 33vw"
+                          priority
                         />
                       </div>
 
                       <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                         <div className="flex items-center">
-                          <div className="relative w-10 h-10 mr-3">
+                          <div className="relative w-10 h-10 mr-3 flex-shrink-0">
                             <Image
                               src={formData.imageUrl}
                               alt={formData.category}
@@ -694,13 +699,13 @@ export default function NewActivityPage() {
                               sizes="40px"
                             />
                           </div>
-                          <div>
-                            <p className="font-medium text-gray-800">
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-800 truncate">
                               {categories.find(
                                 (c) => c.value === formData.category,
                               )?.label || "Farm Visit"}
                             </p>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-sm text-gray-500 truncate">
                               {formData.imageUrl.replace("/", "")}
                             </p>
                           </div>
@@ -711,13 +716,13 @@ export default function NewActivityPage() {
                 </div>
 
                 {/* Capacity & Pricing */}
-                <div className="bg-white rounded-xl shadow p-6">
-                  <h2 className="text-xl font-semibold text-gray-800 mb-6 pb-3 border-b flex items-center">
-                    <Users className="w-5 h-5 mr-2" />
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-6 pb-3 border-b flex items-center">
+                    <Users className="w-5 h-5 mr-2 flex-shrink-0" />
                     Capacity & Participation
                   </h2>
 
-                  <div className="space-y-6">
+                  <div className="space-y-4 sm:space-y-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         <Users className="w-4 h-4 inline mr-2" />
@@ -730,7 +735,7 @@ export default function NewActivityPage() {
                         onChange={handleChange}
                         min="1"
                         max="100"
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent ${
+                        className={`w-full px-4 py-3 text-base sm:text-sm border rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent ${
                           errors.maxCapacity
                             ? "border-red-300"
                             : "border-gray-300"
@@ -741,21 +746,21 @@ export default function NewActivityPage() {
                           {errors.maxCapacity}
                         </p>
                       )}
-                      <p className="mt-1 text-sm text-gray-500">
+                      <p className="mt-1 text-xs sm:text-sm text-gray-500">
                         Maximum number of participants
                       </p>
                     </div>
 
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                       <div className="flex items-start">
-                        <div className="p-1 bg-green-100 rounded mr-3">
+                        <div className="p-1 bg-green-100 rounded mr-3 flex-shrink-0">
                           <DollarSign className="w-4 h-4 text-green-600" />
                         </div>
                         <div>
-                          <p className="font-medium text-green-800">
+                          <p className="font-medium text-green-800 text-sm sm:text-base">
                             All activities are free
                           </p>
-                          <p className="text-sm text-green-600 mt-1">
+                          <p className="text-xs sm:text-sm text-green-600 mt-1">
                             Farm activities are offered at no cost to visitors.
                           </p>
                         </div>
@@ -765,14 +770,14 @@ export default function NewActivityPage() {
                 </div>
 
                 {/* Recurrence Settings */}
-                <div className="bg-white rounded-xl shadow p-6">
-                  <h2 className="text-xl font-semibold text-gray-800 mb-6 pb-3 border-b">
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-6 pb-3 border-b">
                     Recurrence Settings
                   </h2>
 
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-700 font-medium">
+                      <span className="text-gray-700 font-medium text-sm sm:text-base">
                         Recurring Activity
                       </span>
                       <label className="relative inline-flex items-center cursor-pointer">
@@ -805,7 +810,7 @@ export default function NewActivityPage() {
                             name="recurrenceType"
                             value={formData.recurrenceType}
                             onChange={handleChange}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent"
+                            className="w-full px-4 py-3 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent"
                           >
                             <option value="none">No recurrence</option>
                             <option value="daily">Daily</option>
@@ -823,7 +828,7 @@ export default function NewActivityPage() {
                             name="recurrenceEndDate"
                             value={formData.recurrenceEndDate}
                             onChange={handleChange}
-                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent ${
+                            className={`w-full px-4 py-3 text-base sm:text-sm border rounded-lg focus:ring-2 focus:ring-[#2d5a27] focus:border-transparent ${
                               errors.recurrenceEndDate
                                 ? "border-red-300"
                                 : "border-gray-300"
@@ -841,7 +846,7 @@ export default function NewActivityPage() {
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                               Repeat on days *
                             </label>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                               {daysOfWeek.map((day) => (
                                 <button
                                   key={day.id}
@@ -849,7 +854,7 @@ export default function NewActivityPage() {
                                   onClick={() =>
                                     handleRecurrenceDayToggle(day.value)
                                   }
-                                  className={`p-2 rounded-lg text-sm text-center transition ${
+                                  className={`p-2 rounded-lg text-xs sm:text-sm text-center transition min-h-[44px] ${
                                     formData.recurrenceDays.includes(day.value)
                                       ? "bg-[#2d5a27] text-white"
                                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -872,15 +877,15 @@ export default function NewActivityPage() {
                 </div>
 
                 {/* Featured & Submit */}
-                <div className="bg-white rounded-xl shadow p-6 space-y-6">
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 space-y-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
-                      <Star className="w-5 h-5 text-yellow-500 mr-3" />
+                      <Star className="w-5 h-5 text-yellow-500 mr-3 flex-shrink-0" />
                       <div>
-                        <span className="font-medium text-gray-800">
+                        <span className="font-medium text-gray-800 text-sm sm:text-base">
                           Feature this activity
                         </span>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-xs sm:text-sm text-gray-500">
                           Show on homepage
                         </p>
                       </div>
@@ -900,7 +905,7 @@ export default function NewActivityPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full flex items-center justify-center px-6 py-4 bg-[#2d5a27] text-white rounded-lg hover:bg-green-800 transition disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-lg shadow-md"
+                    className="w-full flex items-center justify-center px-6 py-4 bg-[#2d5a27] text-white rounded-lg hover:bg-green-800 transition disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-base sm:text-lg shadow-md min-h-[56px]"
                   >
                     {loading ? (
                       <>

@@ -5,7 +5,7 @@ import { createContext, useContext, useState, useEffect } from "react";
 const LanguageContext = createContext();
 
 export function LanguageProvider({ children }) {
-  // Idioma estable durante SSR → siempre "fr" o el que tú quieras
+  // Inicialización segura: SSR = "fr", CSR = localStorage
   const [language, setLanguage] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("farm-language") || "fr";
@@ -13,11 +13,11 @@ export function LanguageProvider({ children }) {
     return "fr";
   });
 
-  // Sincronizamos DOM y localStorage cuando cambia el idioma
+  // Sincronizar DOM y localStorage cuando cambia el idioma
   useEffect(() => {
-    localStorage.setItem("farm-language", language);
     document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
     document.documentElement.lang = language;
+    localStorage.setItem("farm-language", language);
   }, [language]);
 
   const toggleLanguage = () => {
