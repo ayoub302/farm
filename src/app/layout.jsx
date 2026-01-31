@@ -2,7 +2,6 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import AdminButton from "@/components/AdminButton";
 import { LanguageProvider } from "@/components/LanguageContext";
 import { ClerkProvider } from "@clerk/nextjs";
 
@@ -42,7 +41,6 @@ export default function RootLayout({ children }) {
         >
           <LanguageProvider>
             <Header />
-            <AdminButton />
             <main className="grow mt-20">{children}</main>
             <Footer />
           </LanguageProvider>
