@@ -21,14 +21,26 @@ import {
   Sprout,
   Menu,
   ChevronRight,
+  Image as ImageIcon,
+  Users,
+  BarChart3,
+  Settings,
+  FileText,
+  Globe,
+  Upload,
+  Eye,
+  Download,
+  Video,
+  Tag,
 } from "lucide-react";
 
-// ================= SIMPLE ADMIN GUARD =================
+// ================= SIMPLE ADMIN GUARD CORREGIDO =================
 const SimpleAdminGuard = ({ children }) => {
-  const { isLoaded, userId } = useAuth();
+  const { isLoaded, userId, getToken } = useAuth();
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const hasCheckedRef = useRef(false);
 
   useEffect(() => {
@@ -37,58 +49,87 @@ const SimpleAdminGuard = ({ children }) => {
     hasCheckedRef.current = true;
 
     const checkAdmin = async () => {
+      // Si no hay usuario, redirigir a sign-in de Clerk
       if (!userId) {
+        console.log("[ADMIN GUARD] No user found, redirecting to sign-in");
         router.push("/sign-in");
         return;
       }
 
       try {
-        // Verificación simple - si está en desarrollo, permitir acceso
-        if (process.env.NODE_ENV === "development") {
-          console.log("[DEV MODE] Bypassing admin check");
+        console.log("[ADMIN GUARD] Verifying admin for user:", userId);
+
+        // En desarrollo, podemos permitir acceso directo para pruebas
+        if (
+          process.env.NODE_ENV === "development" &&
+          process.env.NEXT_PUBLIC_SKIP_ADMIN_CHECK === "true"
+        ) {
+          console.log("[ADMIN GUARD] Development mode - granting access");
           setIsAdmin(true);
           setLoading(false);
           return;
         }
 
-        const res = await fetch("/api/admin/verify");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success) {
-            setIsAdmin(true);
-          } else {
-            router.push("/");
-          }
-        } else {
-          router.push("/");
+        // Obtener token para autenticación
+        const token = await getToken();
+
+        // Verificar con el endpoint de admin
+        const res = await fetch("/api/admin/verify", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          credentials: "include",
+        });
+
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
         }
-      } catch {
-        router.push("/");
+
+        const data = await res.json();
+
+        if (data.success) {
+          console.log("[ADMIN GUARD] Access granted - user is admin");
+          setIsAdmin(true);
+        } else {
+          console.log("[ADMIN GUARD] Access denied - not admin");
+          setError(
+            "You don't have admin privileges. Redirecting to home page...",
+          );
+          setTimeout(() => router.push("/"), 3000);
+        }
+      } catch (error) {
+        console.error("[ADMIN GUARD] Error:", error);
+        setError("Error verifying admin status. Redirecting to home page...");
+        setTimeout(() => router.push("/"), 3000);
       } finally {
         setLoading(false);
       }
     };
 
     checkAdmin();
-  }, [isLoaded, userId, router]);
+  }, [isLoaded, userId, router, getToken]);
 
+  // Mostrar loading mientras carga
   if (!isLoaded || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2d5a27] mx-auto"></div>
           <p className="mt-4 text-gray-600 text-sm sm:text-base">
-            Checking admin permissions...
+            Verifying admin access...
           </p>
         </div>
       </div>
     );
   }
 
-  if (!isAdmin) {
+  // Mostrar error si no es admin
+  if (error || !isAdmin) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="text-center max-w-sm w-full">
+        <div className="text-center max-w-md w-full">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <XCircle className="w-8 h-8 text-red-600" />
           </div>
@@ -96,7 +137,7 @@ const SimpleAdminGuard = ({ children }) => {
             Access Denied
           </h2>
           <p className="text-gray-600 mb-6 text-sm sm:text-base">
-            You don&apos;t have permission to access this page.
+            {error || "You don't have permission to access this page."}
           </p>
           <Link
             href="/"
@@ -109,11 +150,12 @@ const SimpleAdminGuard = ({ children }) => {
     );
   }
 
+  // Si es admin, mostrar el contenido
   return <>{children}</>;
 };
 
 export default function AdminDashboard() {
-  const { isLoaded, userId } = useAuth();
+  const { isLoaded, userId, getToken, signOut } = useAuth();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -136,11 +178,15 @@ export default function AdminDashboard() {
     upcomingActivities: 0,
     totalHarvests: 0,
     activeHarvests: 0,
+    totalGalleryItems: 0,
+    galleryViews: 0,
+    galleryDownloads: 0,
   });
 
   const [recentMessages, setRecentMessages] = useState([]);
   const [recentReservations, setRecentReservations] = useState([]);
   const [recentHarvests, setRecentHarvests] = useState([]);
+  const [recentGallery, setRecentGallery] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState(new Date());
@@ -156,24 +202,91 @@ export default function AdminDashboard() {
     setLoadingStats(true);
 
     try {
-      const [messagesRes, reservationsRes, harvestsRes] = await Promise.all([
-        fetch("/api/admin/messages/recent").then((r) => (r.ok ? r.json() : [])),
-        fetch("/api/admin/reservations/recent").then((r) =>
-          r.ok ? r.json() : [],
-        ),
-        fetch("/api/admin/harvests/recent").then((r) => (r.ok ? r.json() : [])),
-      ]);
+      // Obtener token para autenticación
+      const token = await getToken();
 
-      const messages = Array.isArray(messagesRes) ? messagesRes : [];
-      const reservations = Array.isArray(reservationsRes)
-        ? reservationsRes
-        : [];
-      const harvests = Array.isArray(harvestsRes) ? harvestsRes : [];
+      // Configurar headers comunes
+      const headers = {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      };
+
+      // Llamadas a APIs en paralelo con manejo de errores individual
+      const [messagesRes, reservationsRes, harvestsRes, galleryRes] =
+        await Promise.allSettled([
+          fetch("/api/admin/messages/recent", {
+            headers,
+            credentials: "include",
+          }).then(async (r) => {
+            if (!r.ok) {
+              console.warn("Messages API error:", r.status);
+              return [];
+            }
+            return r.json();
+          }),
+          fetch("/api/admin/reservations/recent", {
+            headers,
+            credentials: "include",
+          }).then(async (r) => {
+            if (!r.ok) {
+              console.warn("Reservations API error:", r.status);
+              return [];
+            }
+            return r.json();
+          }),
+          fetch("/api/admin/harvests/recent", {
+            headers,
+            credentials: "include",
+          }).then(async (r) => {
+            if (!r.ok) {
+              console.warn("Harvests API error:", r.status);
+              return [];
+            }
+            return r.json();
+          }),
+          fetch("/api/admin/gallery", { headers, credentials: "include" }).then(
+            async (r) => {
+              if (!r.ok) {
+                console.warn("Gallery API error:", r.status);
+                return [];
+              }
+              return r.json();
+            },
+          ),
+        ]);
+
+      // Procesar resultados
+      const messages =
+        messagesRes.status === "fulfilled" && Array.isArray(messagesRes.value)
+          ? messagesRes.value
+          : [];
+      const reservations =
+        reservationsRes.status === "fulfilled" &&
+        Array.isArray(reservationsRes.value)
+          ? reservationsRes.value
+          : [];
+      const harvests =
+        harvestsRes.status === "fulfilled" && Array.isArray(harvestsRes.value)
+          ? harvestsRes.value
+          : [];
+      const galleryItems =
+        galleryRes.status === "fulfilled" && Array.isArray(galleryRes.value)
+          ? galleryRes.value
+          : [];
+
+      console.log("[DASHBOARD] Data loaded:", {
+        messages: messages.length,
+        reservations: reservations.length,
+        harvests: harvests.length,
+        galleryItems: galleryItems.length,
+      });
 
       setRecentMessages(messages.slice(0, 5));
       setRecentReservations(reservations.slice(0, 5));
       setRecentHarvests(harvests.slice(0, 5));
+      setRecentGallery(galleryItems.slice(0, 5));
 
+      // Calcular estadísticas
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -189,7 +302,9 @@ export default function AdminDashboard() {
       }).length;
 
       const unreadMessages = messages.filter(
-        (m) => m.status?.toLowerCase() === "unread",
+        (m) =>
+          m.status?.toLowerCase() === "unread" ||
+          m.status?.toLowerCase() === "new",
       ).length;
 
       const pendingReservations = reservations.filter(
@@ -197,6 +312,15 @@ export default function AdminDashboard() {
       ).length;
 
       const activeHarvests = harvests.filter((h) => h.isActive === true).length;
+
+      const galleryViews = galleryItems.reduce(
+        (sum, item) => sum + (item.views || 0),
+        0,
+      );
+      const galleryDownloads = galleryItems.reduce(
+        (sum, item) => sum + (item.downloads || 0),
+        0,
+      );
 
       setStats({
         totalReservations: reservations.length,
@@ -214,8 +338,12 @@ export default function AdminDashboard() {
         upcomingActivities: 0,
         totalHarvests: harvests.length,
         activeHarvests,
+        totalGalleryItems: galleryItems.length,
+        galleryViews,
+        galleryDownloads,
       });
 
+      // Crear notificaciones
       const newNotifications = [];
       if (unreadMessages > 0) {
         newNotifications.push({
@@ -256,6 +384,19 @@ export default function AdminDashboard() {
         });
       }
 
+      if (galleryItems.length > 0) {
+        newNotifications.push({
+          id: 4,
+          type: "info",
+          icon: <ImageIcon className="w-5 h-5" />,
+          title: "Gallery Items",
+          message: `${galleryItems.length} media item${galleryItems.length !== 1 ? "s" : ""} in gallery`,
+          time: "Just now",
+          link: "/admin/gallery",
+          action: "View Gallery",
+        });
+      }
+
       setNotifications(newNotifications);
       setLastRefreshTime(new Date());
     } catch (err) {
@@ -264,7 +405,7 @@ export default function AdminDashboard() {
       isFetchingRef.current = false;
       setLoadingStats(false);
     }
-  }, [userId]);
+  }, [userId, getToken]);
 
   // ================= INIT DASHBOARD =================
   useEffect(() => {
@@ -275,19 +416,14 @@ export default function AdminDashboard() {
 
     const init = async () => {
       try {
-        // BYPASS TEMPORAL PARA DESARROLLO
-        console.log("[DASHBOARD] Initializing in development mode");
-        setAdminData({
-          email: "admin@almanssouri.com",
-          adminBy: "ADMIN",
-          role: "ADMIN",
-        });
-        setLoading(false);
+        // Inicializar datos de administrador
+        console.log("[DASHBOARD] Initializing dashboard for user:", userId);
 
-        // Pequeño delay antes de cargar datos
-        setTimeout(() => {
-          fetchDashboardData();
-        }, 100);
+        // Cargar datos del dashboard
+        await fetchDashboardData();
+
+        // ✅ IMPORTANTE: Quitar el loading después de cargar los datos
+        setLoading(false);
       } catch (err) {
         console.error("[DASHBOARD] Init error:", err);
         setAuthError(true);
@@ -296,88 +432,9 @@ export default function AdminDashboard() {
     };
 
     init();
-  }, [isLoaded, userId, fetchDashboardData]);
+  }, [isLoaded, userId, fetchDashboardData, getToken]);
 
-  // Loading y error states
-  if (!isLoaded) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2d5a27] mx-auto"></div>
-          <p className="mt-4 text-gray-600 text-sm sm:text-base">
-            Loading authentication...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (authError || !userId) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 sm:p-8">
-        <div className="text-center max-w-md w-full">
-          <div className="bg-red-50 border border-red-200 rounded-xl p-6 mb-6">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <XCircle className="w-8 h-8 text-red-600" />
-            </div>
-            <h2 className="text-xl font-semibold text-gray-800 mb-2">
-              Authentication Error
-            </h2>
-            <p className="text-gray-600 mb-4 text-sm sm:text-base">
-              {!userId
-                ? "You are not signed in."
-                : "Unable to verify admin access."}
-            </p>
-            <div className="space-y-3">
-              {!userId ? (
-                <>
-                  <Link
-                    href="/sign-in"
-                    className="block w-full bg-[#2d5a27] text-white px-6 py-3 rounded-lg hover:bg-green-800 transition text-center text-sm sm:text-base"
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    href="/"
-                    className="block w-full border border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-50 transition text-center text-sm sm:text-base"
-                  >
-                    Return to Home
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-gray-500">
-                    You are signed in as: {userId?.substring(0, 8)}...
-                  </p>
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition text-sm sm:text-base"
-                  >
-                    Retry Loading
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2d5a27] mx-auto"></div>
-          <p className="mt-4 text-gray-600 text-sm sm:text-base">
-            Loading dashboard...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Helper functions
+  // ================= HELPER FUNCTIONS =================
   const getStatusColor = (status) => {
     if (!status) return "bg-gray-100 text-gray-800";
     const statusLower = status.toLowerCase();
@@ -392,6 +449,7 @@ export default function AdminDashboard() {
       case "read":
         return "bg-blue-100 text-blue-800";
       case "unread":
+      case "new":
         return "bg-yellow-100 text-yellow-800";
       case "cancelled":
       case "archived":
@@ -412,6 +470,8 @@ export default function AdminDashboard() {
       case "active":
         return <CheckCircle className="w-4 h-4 mr-1" />;
       case "pending":
+      case "unread":
+      case "new":
         return <Clock className="w-4 h-4 mr-1" />;
       case "cancelled":
       case "inactive":
@@ -473,25 +533,98 @@ export default function AdminDashboard() {
 
   const handleSignOut = async () => {
     try {
-      await fetch("/api/admin/log", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "logout",
-          userId: userId,
-        }),
-      });
+      await signOut();
       router.push("/");
     } catch (error) {
       console.error("Error signing out:", error);
+      router.push("/");
     }
   };
 
-  // Main render - SIN AdminGuard wrapper
+  // ================= LOADING AND ERROR STATES =================
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2d5a27] mx-auto"></div>
+          <p className="mt-4 text-gray-600 text-sm sm:text-base">
+            Loading authentication...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (authError || !userId) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 sm:p-8">
+        <div className="text-center max-w-md w-full">
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6 mb-6">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <XCircle className="w-8 h-8 text-red-600" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-800 mb-2">
+              Authentication Error
+            </h2>
+            <p className="text-gray-600 mb-4 text-sm sm:text-base">
+              {!userId
+                ? "You are not signed in."
+                : "Unable to verify admin access."}
+            </p>
+            <div className="space-y-3">
+              {!userId ? (
+                <>
+                  <Link
+                    href="/sign-in"
+                    className="block w-full bg-[#2d5a27] text-white px-6 py-3 rounded-lg hover:bg-green-800 transition text-center text-sm sm:text-base"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/"
+                    className="block w-full border border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-50 transition text-center text-sm sm:text-base"
+                  >
+                    Return to Home
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-500">
+                    User ID: {userId?.substring(0, 8)}...
+                  </p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition text-sm sm:text-base"
+                  >
+                    Retry Loading
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2d5a27] mx-auto"></div>
+          <p className="mt-4 text-gray-600 text-sm sm:text-base">
+            Loading dashboard...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ================= MAIN RENDER =================
   return (
     <SimpleAdminGuard>
       <div className="min-h-screen bg-gray-50">
-        {/* Modal de Notificaciones - Optimizado para móvil */}
+        {/* Modal de Notificaciones */}
         {showNotifications && (
           <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center p-2 sm:p-4">
             <div className="notifications-modal bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden animate-fade-in mt-4 sm:mt-0">
@@ -649,7 +782,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* Header optimizado para móvil */}
+        {/* Header */}
         <header className="bg-white shadow-sm">
           <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
             <div className="flex justify-between items-center py-4">
@@ -731,6 +864,14 @@ export default function AdminDashboard() {
                         <Sprout className="w-5 h-5 mr-3" />
                         Harvests
                       </Link>
+                      <Link
+                        href="/admin/gallery"
+                        className="flex items-center px-4 py-3 rounded-lg hover:bg-gray-50 text-gray-700"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        <ImageIcon className="w-5 h-5 mr-3" />
+                        Gallery
+                      </Link>
                       <div className="pt-4 border-t">
                         <button
                           onClick={handleSignOut}
@@ -792,7 +933,7 @@ export default function AdminDashboard() {
 
         {/* Main Content */}
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
-          {/* Quick Actions optimizado para móvil */}
+          {/* Quick Actions */}
           <div className="mb-6 sm:mb-8">
             <div className="bg-gradient-to-r from-[#2d5a27] to-green-700 rounded-xl shadow-lg p-4 sm:p-6 text-white">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
@@ -801,14 +942,13 @@ export default function AdminDashboard() {
                     Quick Actions
                   </h2>
                   <p className="text-green-100 text-sm sm:text-base">
-                    Manage your farm activities and harvests efficiently
+                    Manage your farm activities, harvests, and media gallery
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
                   <Link
                     href="/admin/harvests/new"
                     className="flex items-center justify-center gap-2 bg-white text-[#2d5a27] px-4 py-3 sm:px-6 sm:py-3 rounded-lg font-semibold hover:bg-green-50 hover:shadow-lg transition text-sm sm:text-base"
-                    onClick={() => setMobileMenuOpen(false)}
                   >
                     <Sprout className="w-4 h-4 sm:w-5 sm:h-5" />
                     New Harvest
@@ -816,17 +956,23 @@ export default function AdminDashboard() {
                   <Link
                     href="/admin/activities/new"
                     className="flex items-center justify-center gap-2 bg-white text-[#2d5a27] px-4 py-3 sm:px-6 sm:py-3 rounded-lg font-semibold hover:bg-green-50 hover:shadow-lg transition text-sm sm:text-base"
-                    onClick={() => setMobileMenuOpen(false)}
                   >
                     <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                     New Activity
+                  </Link>
+                  <Link
+                    href="/admin/gallery"
+                    className="flex items-center justify-center gap-2 bg-white text-[#2d5a27] px-4 py-3 sm:px-6 sm:py-3 rounded-lg font-semibold hover:bg-green-50 hover:shadow-lg transition text-sm sm:text-base"
+                  >
+                    <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
+                    Upload Media
                   </Link>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Stats Cards optimizadas para móvil */}
+          {/* Stats Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
             <Link href="/admin/reservations" className="block">
               <div className="bg-white rounded-xl shadow p-4 hover:shadow-md transition cursor-pointer h-full">
@@ -905,36 +1051,123 @@ export default function AdminDashboard() {
               </div>
             </Link>
 
-            <Link href="/admin/harvests" className="block">
+            <Link href="/admin/gallery" className="block">
               <div className="bg-white rounded-xl shadow p-4 hover:shadow-md transition cursor-pointer h-full">
                 <div className="flex items-center">
-                  <div className="p-2 sm:p-3 bg-green-100 rounded-lg">
-                    <Sprout className="w-6 h-6 sm:w-8 sm:h-8 text-green-600" />
+                  <div className="p-2 sm:p-3 bg-indigo-100 rounded-lg">
+                    <ImageIcon className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-600" />
                   </div>
                   <div className="ml-3">
                     <p className="text-xs sm:text-sm text-gray-500">
-                      Active Harvests
+                      Gallery Items
                     </p>
                     <p className="text-xl sm:text-2xl font-bold">
-                      {stats.activeHarvests}
+                      {stats.totalGalleryItems}
                     </p>
                   </div>
                 </div>
                 <div className="mt-3 text-xs">
                   <span className="text-gray-600">
-                    Total: {stats.totalHarvests}
+                    {stats.galleryViews} views • {stats.galleryDownloads}{" "}
+                    downloads
                   </span>
-                  {stats.activeHarvests > 0 && (
-                    <p className="text-xs text-green-600 mt-1">
-                      {stats.activeHarvests} available
-                    </p>
-                  )}
                 </div>
               </div>
             </Link>
           </div>
 
-          {/* Recent Data Sections - Scroll horizontal en móvil */}
+          {/* Harvest Stats adicionales */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+            <Link href="/admin/harvests" className="block">
+              <div className="bg-white rounded-xl shadow p-4 hover:shadow-md transition cursor-pointer h-full">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="p-2 sm:p-3 bg-green-100 rounded-lg">
+                      <Sprout className="w-6 h-6 sm:w-8 sm:h-8 text-green-600" />
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-xs sm:text-sm text-gray-500">
+                        Active Harvests
+                      </p>
+                      <p className="text-xl sm:text-2xl font-bold">
+                        {stats.activeHarvests}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Total Harvests</p>
+                    <p className="text-lg font-semibold">
+                      {stats.totalHarvests}
+                    </p>
+                  </div>
+                </div>
+                {stats.activeHarvests > 0 && (
+                  <div className="mt-4">
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-green-500 h-2 rounded-full"
+                        style={{
+                          width: `${(stats.activeHarvests / (stats.totalHarvests || 1)) * 100}%`,
+                        }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-green-600 mt-2">
+                      {Math.round(
+                        (stats.activeHarvests / (stats.totalHarvests || 1)) *
+                          100,
+                      )}
+                      % of harvests are active
+                    </p>
+                  </div>
+                )}
+              </div>
+            </Link>
+
+            <Link href="/admin/gallery" className="block">
+              <div className="bg-white rounded-xl shadow p-4 hover:shadow-md transition cursor-pointer h-full">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="p-2 sm:p-3 bg-orange-100 rounded-lg">
+                      <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-orange-600" />
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-xs sm:text-sm text-gray-500">
+                        Gallery Engagement
+                      </p>
+                      <p className="text-xl sm:text-2xl font-bold">
+                        {stats.galleryViews + stats.galleryDownloads}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Total Interactions</p>
+                    <div className="flex items-center gap-2">
+                      <Eye className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm">{stats.galleryViews}</span>
+                      <Download className="w-4 h-4 text-gray-400 ml-2" />
+                      <span className="text-sm">{stats.galleryDownloads}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>Views</span>
+                    <span>Downloads</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-orange-500 h-2 rounded-full"
+                      style={{
+                        width: `${(stats.galleryViews / (stats.galleryViews + stats.galleryDownloads || 1)) * 100}%`,
+                      }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          </div>
+
+          {/* Recent Data Sections */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
             {/* Recent Messages */}
             <div className="bg-white rounded-xl shadow overflow-hidden">
@@ -964,7 +1197,7 @@ export default function AdminDashboard() {
                         className="block"
                       >
                         <div
-                          className={`p-3 rounded-lg hover:bg-gray-50 transition ${message.status === "unread" ? "bg-blue-50 border-l-2 sm:border-l-4 border-blue-500" : ""}`}
+                          className={`p-3 rounded-lg hover:bg-gray-50 transition ${message.status === "unread" || message.status === "new" ? "bg-blue-50 border-l-2 sm:border-l-4 border-blue-500" : ""}`}
                         >
                           <div className="flex justify-between items-start">
                             <div className="flex-1 min-w-0">
@@ -972,7 +1205,8 @@ export default function AdminDashboard() {
                                 <h3 className="font-medium text-gray-800 text-sm sm:text-base truncate">
                                   {message.name || "No name"}
                                 </h3>
-                                {message.status === "unread" && (
+                                {(message.status === "unread" ||
+                                  message.status === "new") && (
                                   <span className="ml-2 bg-blue-500 text-white text-xs rounded-full px-1.5 py-0.5 sm:px-2 sm:py-1 text-[10px] sm:text-xs">
                                     New
                                   </span>
@@ -1002,7 +1236,10 @@ export default function AdminDashboard() {
                             <span
                               className={`ml-2 px-2 py-1 rounded-full text-xs font-medium flex items-center flex-shrink-0 ${getStatusColor(message.status)}`}
                             >
-                              {message.status || "unknown"}
+                              {getStatusIcon(message.status)}
+                              <span className="hidden sm:inline ml-1">
+                                {message.status || "unknown"}
+                              </span>
                             </span>
                           </div>
                         </div>
@@ -1125,18 +1362,18 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Recent Harvests */}
+            {/* Recent Gallery Items */}
             <div className="bg-white rounded-xl shadow overflow-hidden">
               <div className="px-4 py-3 sm:px-6 sm:py-4 border-b">
                 <div className="flex justify-between items-center">
                   <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
-                    Recent Harvests
+                    Recent Gallery Items
                     <span className="ml-2 text-xs sm:text-sm font-normal text-gray-500">
-                      ({recentHarvests.length})
+                      ({recentGallery.length})
                     </span>
                   </h2>
                   <Link
-                    href="/admin/harvests"
+                    href="/admin/gallery"
                     className="text-xs sm:text-sm text-[#2d5a27] hover:underline"
                   >
                     View all
@@ -1144,42 +1381,54 @@ export default function AdminDashboard() {
                 </div>
               </div>
               <div className="p-3 sm:p-6 max-h-[400px] sm:max-h-[500px] overflow-y-auto">
-                {recentHarvests.length > 0 ? (
+                {recentGallery.length > 0 ? (
                   <div className="space-y-3 sm:space-y-4">
-                    {recentHarvests.map((harvest, index) => (
+                    {recentGallery.map((item, index) => (
                       <Link
-                        key={harvest.id || `har-${index}`}
-                        href="/admin/harvests"
+                        key={item.id || `gallery-${index}`}
+                        href="/admin/gallery"
                         className="block"
                       >
                         <div className="p-3 hover:bg-gray-50 rounded-lg transition">
                           <div className="flex justify-between items-start">
                             <div className="flex-1 min-w-0">
-                              <h3 className="font-medium text-gray-800 text-sm sm:text-base truncate">
-                                {harvest.productFr || "No product name"}
-                              </h3>
+                              <div className="flex items-center">
+                                {item.type === "image" ||
+                                item.type === "image/jpeg" ||
+                                item.type === "image/png" ? (
+                                  <ImageIcon className="w-4 h-4 text-blue-500 mr-2 flex-shrink-0" />
+                                ) : (
+                                  <Video className="w-4 h-4 text-purple-500 mr-2 flex-shrink-0" />
+                                )}
+                                <h3 className="font-medium text-gray-800 text-sm sm:text-base truncate">
+                                  {item.titleFr || item.title || "No title"}
+                                </h3>
+                              </div>
+                              <p className="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-2">
+                                {item.descriptionFr ||
+                                  item.description ||
+                                  "No description"}
+                              </p>
                               <div className="flex items-center text-xs text-gray-500 mt-2">
-                                <Calendar className="w-3 h-3 mr-1 flex-shrink-0" />
-                                <span>
-                                  Next:{" "}
-                                  {harvest.nextHarvest
-                                    ? formatDate(harvest.nextHarvest)
-                                    : "Not scheduled"}
+                                <Tag className="w-3 h-3 mr-1 flex-shrink-0" />
+                                <span className="truncate">
+                                  {item.category || "Uncategorized"}
                                 </span>
                               </div>
-                              <p className="text-xs text-gray-400 mt-1">
-                                Created: {formatDate(harvest.createdAt)}
-                              </p>
+                              <div className="flex items-center text-xs text-gray-400 mt-1">
+                                <span>{item.views || 0} views</span>
+                                <span className="mx-2">•</span>
+                                <span>{item.downloads || 0} downloads</span>
+                              </div>
                             </div>
                             <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium flex items-center ml-2 flex-shrink-0 ${getStatusColor(harvest.isActive ? "active" : "inactive")}`}
+                              className={`ml-2 px-2 py-1 rounded-full text-xs font-medium flex items-center flex-shrink-0 ${item.type === "image" || item.type === "image/jpeg" || item.type === "image/png" ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"}`}
                             >
-                              {getStatusIcon(
-                                harvest.isActive ? "active" : "inactive",
-                              )}
-                              <span className="hidden sm:inline ml-1">
-                                {harvest.isActive ? "Active" : "Inactive"}
-                              </span>
+                              {item.type === "image" ||
+                              item.type === "image/jpeg" ||
+                              item.type === "image/png"
+                                ? "Image"
+                                : "Video"}
                             </span>
                           </div>
                         </div>
@@ -1188,19 +1437,19 @@ export default function AdminDashboard() {
                   </div>
                 ) : (
                   <div className="text-center py-6 sm:py-8">
-                    <Sprout className="w-10 h-10 sm:w-12 sm:h-12 text-gray-300 mx-auto mb-3" />
+                    <ImageIcon className="w-10 h-10 sm:w-12 sm:h-12 text-gray-300 mx-auto mb-3" />
                     <p className="text-gray-500 text-sm sm:text-base">
-                      No harvests yet
+                      No gallery items yet
                     </p>
                     <p className="text-xs sm:text-sm text-gray-400 mt-2">
-                      Harvests will appear here when you create them
+                      Upload images and videos to showcase your farm
                     </p>
                     <div className="mt-4">
                       <Link
-                        href="/admin/harvests/new"
+                        href="/admin/gallery"
                         className="text-xs sm:text-sm text-[#2d5a27] hover:underline"
                       >
-                        Create your first harvest →
+                        Upload first media →
                       </Link>
                     </div>
                   </div>
@@ -1209,23 +1458,90 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* Quick Links Section */}
+          <div className="mt-8 bg-white rounded-xl shadow p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-6">
+              Quick Links
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Link
+                href="/admin/messages"
+                className="flex flex-col items-center p-4 bg-blue-50 rounded-xl hover:bg-blue-100 transition group"
+              >
+                <div className="p-3 bg-blue-100 rounded-lg mb-3 group-hover:scale-110 transition">
+                  <MessageSquare className="w-8 h-8 text-blue-600" />
+                </div>
+                <span className="font-medium text-gray-800">Messages</span>
+                <span className="text-xs text-gray-500 mt-1">
+                  {stats.totalMessages} total
+                </span>
+              </Link>
+
+              <Link
+                href="/admin/reservations"
+                className="flex flex-col items-center p-4 bg-purple-50 rounded-xl hover:bg-purple-100 transition group"
+              >
+                <div className="p-3 bg-purple-100 rounded-lg mb-3 group-hover:scale-110 transition">
+                  <Calendar className="w-8 h-8 text-purple-600" />
+                </div>
+                <span className="font-medium text-gray-800">Reservations</span>
+                <span className="text-xs text-gray-500 mt-1">
+                  {stats.totalReservations} total
+                </span>
+              </Link>
+
+              <Link
+                href="/admin/harvests"
+                className="flex flex-col items-center p-4 bg-green-50 rounded-xl hover:bg-green-100 transition group"
+              >
+                <div className="p-3 bg-green-100 rounded-lg mb-3 group-hover:scale-110 transition">
+                  <Sprout className="w-8 h-8 text-green-600" />
+                </div>
+                <span className="font-medium text-gray-800">Harvests</span>
+                <span className="text-xs text-gray-500 mt-1">
+                  {stats.totalHarvests} total
+                </span>
+              </Link>
+
+              <Link
+                href="/admin/gallery"
+                className="flex flex-col items-center p-4 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition group"
+              >
+                <div className="p-3 bg-indigo-100 rounded-lg mb-3 group-hover:scale-110 transition">
+                  <ImageIcon className="w-8 h-8 text-indigo-600" />
+                </div>
+                <span className="font-medium text-gray-800">Gallery</span>
+                <span className="text-xs text-gray-500 mt-1">
+                  {stats.totalGalleryItems} items
+                </span>
+              </Link>
+            </div>
+          </div>
+
           {/* Empty State */}
           {stats.totalReservations === 0 &&
             stats.totalMessages === 0 &&
-            stats.totalHarvests === 0 && (
+            stats.totalHarvests === 0 &&
+            stats.totalGalleryItems === 0 && (
               <div className="mt-6 sm:mt-8 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 text-center">
                 <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800 mb-3 sm:mb-4">
                   Welcome to your Dashboard! 🎉
                 </h2>
                 <p className="text-gray-600 text-sm sm:text-base mb-4 sm:mb-6 max-w-2xl mx-auto">
-                  Get started by creating harvests or testing the reservation
-                  form. Your dashboard will show real-time statistics as users
-                  interact with your farm.
+                  Get started by creating harvests, uploading media, or testing
+                  the reservation form. Your dashboard will show real-time
+                  statistics as users interact with your farm.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <Link
-                    href="/admin/harvests/new"
+                    href="/admin/gallery"
                     className="bg-[#2d5a27] text-white px-4 py-3 sm:px-6 sm:py-3 rounded-lg hover:bg-green-800 transition font-medium text-sm sm:text-base"
+                  >
+                    Upload Media
+                  </Link>
+                  <Link
+                    href="/admin/harvests/new"
+                    className="bg-white text-[#2d5a27] border border-[#2d5a27] px-4 py-3 sm:px-6 sm:py-3 rounded-lg hover:bg-green-50 transition font-medium text-sm sm:text-base"
                   >
                     Create First Harvest
                   </Link>
@@ -1236,19 +1552,12 @@ export default function AdminDashboard() {
                   >
                     Test Reservation Form
                   </Link>
-                  <Link
-                    href="/contact"
-                    target="_blank"
-                    className="bg-white text-[#2d5a27] border border-[#2d5a27] px-4 py-3 sm:px-6 sm:py-3 rounded-lg hover:bg-green-50 transition font-medium text-sm sm:text-base"
-                  >
-                    Test Contact Form
-                  </Link>
                 </div>
               </div>
             )}
         </div>
 
-        {/* Footer optimizado para móvil */}
+        {/* Footer */}
         <footer className="bg-white border-t mt-6 sm:mt-8">
           <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
@@ -1287,6 +1596,13 @@ export default function AdminDashboard() {
                     {stats.activeHarvests > 0
                       ? `${stats.activeHarvests} active`
                       : "No harvests"}
+                  </span>
+                  <span
+                    className={`text-xs px-1.5 py-0.5 rounded-full ${stats.totalGalleryItems > 0 ? "bg-indigo-100 text-indigo-800" : "bg-gray-100 text-gray-800"}`}
+                  >
+                    {stats.totalGalleryItems > 0
+                      ? `${stats.totalGalleryItems} media`
+                      : "No media"}
                   </span>
                 </div>
               </div>

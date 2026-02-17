@@ -21,6 +21,7 @@ model User {
   messages Message[]
   bookings Booking[]
   reviews  Review[]
+  galleries Gallery[]
 
   clerkUserId String? @unique
   clerkData   Json?
@@ -109,6 +110,7 @@ model Harvest {
   bookings       Booking[]       @relation("HarvestBookings")
   calendarEvents CalendarEvent[] @relation("HarvestCalendarEvents")
   products       Product[]       @relation("HarvestProducts")
+  galleries      Gallery[]       @relation("HarvestGalleries")
 
   @@index([isActive])
   @@index([season])
@@ -331,4 +333,95 @@ model Product {
   @@index([isAvailable])
   @@index([isFeatured])
   @@map("products")
+}
+
+// ============ MODELO: Gallery ============
+
+model Gallery {
+  id            String   @id @default(cuid())
+  titleAr       String
+  titleFr       String
+  descriptionAr String?  @db.Text
+  descriptionFr String?  @db.Text
+  type          String   @default("image") // 'image', 'video'
+  category      String   @default("activities") // 'activities', 'harvest', 'sustainability', 'products', 'farmLife'
+  status        String   @default("draft") // 'draft', 'published', 'archived'
+  
+  // Información del archivo
+  src           String   // URL del archivo (imagen o video)
+  thumbnail     String?  // Thumbnail para videos
+  altTextAr     String?
+  altTextFr     String?
+  mimeType      String?
+  size          Int?     // Tamaño en bytes
+  width         Int?
+  height        Int?
+  duration      String?  // Duración para videos (formato: "HH:MM:SS")
+  
+  // Metadatos
+  uploadedById  String?
+  uploadedBy    User?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  harvestId     String?
+  harvest       Harvest? @relation(fields: [harvestId], references: [id], onDelete: Cascade, name: "HarvestGalleries")
+  
+  // URLs externas (para videos de YouTube, Vimeo, etc.)
+  externalUrl   String?
+  platform      String?  // 'youtube', 'vimeo', 'dailymotion', etc.
+  
+  // Estadísticas (opcional, puedes añadirlas después si las necesitas)
+  views         Int      @default(0)
+  downloads     Int      @default(0)
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  publishedAt   DateTime?
+  archivedAt    DateTime?
+
+  // Relación con tags (muchos a muchos)
+  tags          GalleryTagMap[]
+
+  // Índices
+  @@index([type])
+  @@index([category])
+  @@index([status])
+  @@index([uploadedById])
+  @@index([harvestId])
+  @@index([createdAt])
+  @@index([publishedAt])
+  @@map("galleries")
+}
+
+// ============ MODELO: GalleryTag ============
+
+model GalleryTag {
+  id        String   @id @default(cuid())
+  nameAr    String
+  nameFr    String
+  color     String?  @default("#4F46E5")
+  icon      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relación con galleries (muchos a muchos)
+  galleries GalleryTagMap[]
+
+  @@unique([nameAr])
+  @@unique([nameFr])
+  @@map("gallery_tags")
+}
+
+// ============ MODELO: GalleryTagMap (tabla de unión) ============
+
+model GalleryTagMap {
+  id        String   @id @default(cuid())
+  galleryId String
+  tagId     String
+  createdAt DateTime @default(now())
+
+  gallery Gallery   @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  tag     GalleryTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([galleryId, tagId])
+  @@map("gallery_tag_maps")
 }

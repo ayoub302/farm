@@ -1,0 +1,560 @@
+// /app/api/admin/gallery/route.js
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { PrismaClient } from "@prisma/client";
+import { writeFile, mkdir, unlink } from "fs/promises";
+import { existsSync } from "fs";
+import path from "path";
+
+const prisma = new PrismaClient();
+
+// Directorios
+const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
+const IMAGES_DIR = path.join(UPLOAD_DIR, "images");
+const VIDEOS_DIR = path.join(UPLOAD_DIR, "videos");
+const THUMBNAILS_DIR = path.join(UPLOAD_DIR, "thumbnails");
+
+// Asegurar directorios
+const ensureDirectories = async () => {
+  const dirs = [UPLOAD_DIR, IMAGES_DIR, VIDEOS_DIR, THUMBNAILS_DIR];
+  for (const dir of dirs) {
+    if (!existsSync(dir)) {
+      await mkdir(dir, { recursive: true });
+    }
+  }
+};
+
+// Función para obtener o crear usuario - CORREGIDA (sin campo role)
+const getOrCreateUser = async (clerkUserId) => {
+  try {
+    // Buscar usuario por clerkUserId
+    let user = await prisma.user.findUnique({
+      where: { clerkUserId: clerkUserId },
+    });
+
+    if (!user) {
+      // Obtener datos de Clerk
+      const clerkUser = await fetch(
+        `https://api.clerk.com/v1/users/${clerkUserId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}`,
+          },
+        },
+      ).then((res) => res.json());
+
+      const primaryEmail =
+        clerkUser.email_addresses?.find((email) => email.primary)
+          ?.email_address ||
+        clerkUser.email_addresses?.[0]?.email_address ||
+        `${clerkUserId}@clerk.user`;
+
+      // Buscar por email
+      user = await prisma.user.findUnique({
+        where: { email: primaryEmail },
+      });
+
+      if (!user) {
+        // Crear nuevo usuario - SIN campo role
+        user = await prisma.user.create({
+          data: {
+            clerkUserId,
+            email: primaryEmail,
+            name:
+              `${clerkUser.first_name || ""} ${clerkUser.last_name || ""}`.trim() ||
+              clerkUser.username ||
+              primaryEmail.split("@")[0],
+            // ✅ ELIMINADO: role: "ADMIN" - no existe en el modelo
+            clerkData: JSON.stringify(clerkUser),
+          },
+        });
+      } else {
+        // Actualizar usuario existente
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            clerkUserId,
+            clerkData: JSON.stringify(clerkUser),
+          },
+        });
+      }
+    }
+
+    return user;
+  } catch (error) {
+    console.error("Error getting/creating user:", error);
+    return null; // No crear usuario temporal
+  }
+};
+
+// Verificación de autenticación - CORREGIDA
+const verifyAuth = async (request) => {
+  try {
+    const { userId } = await auth();
+
+    console.log("[GALLERY API] Clerk auth result:", {
+      userId: userId || "none",
+    });
+
+    if (!userId) {
+      return { success: false, error: "No user authenticated", status: 401 };
+    }
+
+    // Intentar obtener usuario real de la BD
+    const user = await getOrCreateUser(userId);
+
+    if (!user) {
+      console.error("[GALLERY API] Could not get or create user");
+
+      // En desarrollo, permitir continuar sin usuario real para pruebas
+      if (process.env.NODE_ENV === "development") {
+        console.log("[DEV] Using fallback user for development");
+        return {
+          success: true,
+          user: null, // No hay usuario real
+          clerkUserId: userId,
+          isDevMode: true,
+        };
+      }
+
+      return { success: false, error: "User not found", status: 404 };
+    }
+
+    return {
+      success: true,
+      user,
+      clerkUserId: userId,
+      isDevMode: false,
+    };
+  } catch (error) {
+    console.error("Auth verification error:", error);
+
+    if (process.env.NODE_ENV === "development") {
+      return {
+        success: true,
+        user: null,
+        clerkUserId: "dev-user",
+        isDevMode: true,
+      };
+    }
+
+    return { success: false, error: "Authentication error", status: 401 };
+  }
+};
+
+// GET: Obtener galería
+export async function GET(request) {
+  try {
+    const authResult = await verifyAuth(request);
+    if (!authResult.success) {
+      return NextResponse.json(
+        { success: false, error: authResult.error },
+        { status: authResult.status || 401 },
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get("type");
+    const category = searchParams.get("category");
+    const status = searchParams.get("status");
+    const search = searchParams.get("search");
+
+    const where = {};
+
+    if (type && type !== "all") where.type = type;
+    if (category && category !== "all") where.category = category;
+    if (status && status !== "all") where.status = status;
+
+    if (search) {
+      where.OR = [
+        { titleAr: { contains: search, mode: "insensitive" } },
+        { titleFr: { contains: search, mode: "insensitive" } },
+        { descriptionAr: { contains: search, mode: "insensitive" } },
+        { descriptionFr: { contains: search, mode: "insensitive" } },
+        { category: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    try {
+      const galleries = await prisma.gallery.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        include: {
+          uploadedBy: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+      });
+
+      const items = galleries.map((gallery) => ({
+        id: gallery.id,
+        titleAr: gallery.titleAr || "",
+        titleFr: gallery.titleFr || "",
+        descriptionAr: gallery.descriptionAr || "",
+        descriptionFr: gallery.descriptionFr || "",
+        type: gallery.type || "image",
+        category: gallery.category || "activities",
+        status: gallery.status || "draft",
+        src: gallery.src || "",
+        thumbnail: gallery.thumbnail || "",
+        url: gallery.src || "",
+        uploadedAt: gallery.createdAt,
+        size: gallery.size
+          ? gallery.size > 1024 * 1024
+            ? `${(gallery.size / (1024 * 1024)).toFixed(1)} MB`
+            : `${(gallery.size / 1024).toFixed(1)} KB`
+          : "N/A",
+        views: gallery.views || 0,
+        downloads: gallery.downloads || 0,
+        uploadedBy: gallery.uploadedBy?.name || "Admin",
+      }));
+
+      return NextResponse.json({
+        success: true,
+        items,
+        count: items.length,
+      });
+    } catch (dbError) {
+      console.error("[GALLERY API] Database error:", dbError);
+
+      if (process.env.NODE_ENV === "development") {
+        const sampleItems = [
+          {
+            id: "1",
+            titleAr: "صورة النشاط",
+            titleFr: "Image d'activité",
+            descriptionAr: "وصف النشاط بالعربية",
+            descriptionFr: "Description de l'activité en français",
+            type: "image",
+            category: "activities",
+            status: "published",
+            src: "/images/sample.jpg",
+            url: "/images/sample.jpg",
+            uploadedAt: new Date().toISOString(),
+            size: "2.3 MB",
+            views: 150,
+            downloads: 25,
+            uploadedBy: "Admin",
+          },
+        ];
+        return NextResponse.json({
+          success: true,
+          items: sampleItems,
+          count: sampleItems.length,
+          isSampleData: true,
+        });
+      }
+
+      return NextResponse.json(
+        { success: false, error: "Database error" },
+        { status: 500 },
+      );
+    }
+  } catch (error) {
+    console.error("[GALLERY API] Error:", error);
+    return NextResponse.json(
+      { success: false, error: "Internal server error" },
+      { status: 500 },
+    );
+  }
+}
+
+// POST: Subir nuevo elemento - CORREGIDO
+export async function POST(request) {
+  let fileUrl = "";
+  let thumbnailUrl = "";
+  let tempFiles = [];
+
+  try {
+    const authResult = await verifyAuth(request);
+    if (!authResult.success) {
+      return NextResponse.json(
+        { success: false, error: authResult.error },
+        { status: authResult.status || 401 },
+      );
+    }
+
+    console.log(`[GALLERY API] Auth result:`, authResult);
+
+    // Verificar content-type
+    const contentType = request.headers.get("content-type") || "";
+    if (!contentType.includes("multipart/form-data")) {
+      return NextResponse.json(
+        { success: false, error: "Content-Type must be multipart/form-data" },
+        { status: 400 },
+      );
+    }
+
+    await ensureDirectories();
+
+    // Obtener formData
+    let formData;
+    try {
+      formData = await request.formData();
+    } catch (formError) {
+      console.error("[GALLERY API] Error parsing formData:", formError);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to parse form data. File may be too large.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const titleAr = formData.get("titleAr")?.toString().trim() || "";
+    const titleFr = formData.get("titleFr")?.toString().trim() || "";
+    const descriptionAr =
+      formData.get("descriptionAr")?.toString().trim() || "";
+    const descriptionFr =
+      formData.get("descriptionFr")?.toString().trim() || "";
+    const type = formData.get("type")?.toString() || "image";
+    const category = formData.get("category")?.toString() || "activities";
+    const status = formData.get("status")?.toString() || "draft";
+    const videoUrl = formData.get("videoUrl")?.toString().trim() || "";
+
+    if (!titleAr || !titleFr) {
+      return NextResponse.json(
+        { success: false, error: "Titles in both languages are required" },
+        { status: 400 },
+      );
+    }
+
+    let fileSize = 0;
+    let width = null;
+    let height = null;
+    let mimeType = "";
+
+    // Procesar IMAGEN
+    if (type === "image") {
+      const imageFile = formData.get("image") || formData.get("file");
+
+      if (!imageFile || imageFile.size === 0) {
+        return NextResponse.json(
+          { success: false, error: "Image file is required" },
+          { status: 400 },
+        );
+      }
+
+      // Validar tamaño (50MB máximo para imágenes)
+      const maxSize = 50 * 1024 * 1024;
+      if (imageFile.size > maxSize) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Image size must be less than ${maxSize / (1024 * 1024)}MB`,
+          },
+          { status: 400 },
+        );
+      }
+
+      const allowedImageTypes = [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+      ];
+      if (!allowedImageTypes.includes(imageFile.type)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Invalid image format. Allowed: JPEG, JPG, PNG, GIF, WebP",
+          },
+          { status: 400 },
+        );
+      }
+
+      const bytes = await imageFile.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      fileSize = imageFile.size;
+      mimeType = imageFile.type;
+
+      const timestamp = Date.now();
+      const originalName = imageFile.name || "image";
+      const safeName = originalName.replace(/[^a-zA-Z0-9.]/g, "-");
+      const fileName = `${timestamp}-${safeName}`;
+      const filePath = path.join(IMAGES_DIR, fileName);
+
+      await writeFile(filePath, buffer);
+      fileUrl = `/uploads/images/${fileName}`;
+      tempFiles.push(filePath);
+
+      width = 1200;
+      height = 800;
+
+      // Procesar VIDEO
+    } else if (type === "video") {
+      const videoFile = formData.get("video") || formData.get("file");
+
+      if (videoFile && videoFile.size > 0) {
+        // Validar tamaño (200MB máximo para videos)
+        const maxSize = 200 * 1024 * 1024;
+        if (videoFile.size > maxSize) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `Video size must be less than ${maxSize / (1024 * 1024)}MB`,
+            },
+            { status: 400 },
+          );
+        }
+
+        const allowedVideoTypes = [
+          "video/mp4",
+          "video/webm",
+          "video/quicktime",
+        ];
+        if (!allowedVideoTypes.includes(videoFile.type)) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Invalid video format. Allowed: MP4, WebM, MOV",
+            },
+            { status: 400 },
+          );
+        }
+
+        const bytes = await videoFile.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        fileSize = videoFile.size;
+        mimeType = videoFile.type;
+
+        const timestamp = Date.now();
+        const originalName = videoFile.name || "video";
+        const safeName = originalName.replace(/[^a-zA-Z0-9.]/g, "-");
+        const fileName = `${timestamp}-${safeName}`;
+        const filePath = path.join(VIDEOS_DIR, fileName);
+
+        await writeFile(filePath, buffer);
+        fileUrl = `/uploads/videos/${fileName}`;
+        tempFiles.push(filePath);
+      } else if (videoUrl) {
+        try {
+          new URL(videoUrl);
+          fileUrl = videoUrl;
+          mimeType = "video/url";
+        } catch {
+          return NextResponse.json(
+            { success: false, error: "Invalid video URL" },
+            { status: 400 },
+          );
+        }
+      } else {
+        return NextResponse.json(
+          { success: false, error: "Either video file or URL is required" },
+          { status: 400 },
+        );
+      }
+
+      // Procesar thumbnail para video
+      const thumbnailFile = formData.get("thumbnail");
+      if (thumbnailFile && thumbnailFile.size > 0) {
+        const allowedThumbnailTypes = [
+          "image/jpeg",
+          "image/jpg",
+          "image/png",
+          "image/gif",
+          "image/webp",
+        ];
+        if (!allowedThumbnailTypes.includes(thumbnailFile.type)) {
+          return NextResponse.json(
+            { success: false, error: "Invalid thumbnail format" },
+            { status: 400 },
+          );
+        }
+
+        const bytes = await thumbnailFile.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+
+        const timestamp = Date.now();
+        const originalName = thumbnailFile.name || "thumbnail";
+        const safeName = originalName.replace(/[^a-zA-Z0-9.]/g, "-");
+        const fileName = `thumbnail-${timestamp}-${safeName}`;
+        const filePath = path.join(THUMBNAILS_DIR, fileName);
+
+        await writeFile(filePath, buffer);
+        thumbnailUrl = `/uploads/thumbnails/${fileName}`;
+        tempFiles.push(filePath);
+      }
+    }
+
+    // ✅ Guardar en base de datos - SIN uploadedById si no hay usuario real
+    const galleryData = {
+      id: Date.now().toString(),
+      titleAr,
+      titleFr,
+      descriptionAr,
+      descriptionFr,
+      type,
+      category,
+      status,
+      src: fileUrl,
+      thumbnail: thumbnailUrl || null,
+      size: fileSize || null,
+      width,
+      height,
+      mimeType: mimeType || null,
+      externalUrl: type === "video" && videoUrl ? videoUrl : null,
+      ...(status === "published" && { publishedAt: new Date() }),
+    };
+
+    // Solo añadir uploadedById si tenemos un usuario real
+    if (authResult.user && authResult.user.id) {
+      galleryData.uploadedById = authResult.user.id;
+    }
+
+    console.log(`[GALLERY API] Creating gallery with data:`, galleryData);
+
+    const newGallery = await prisma.gallery.create({
+      data: galleryData,
+    });
+
+    console.log(`[GALLERY API] Created new item: ${newGallery.id}`);
+
+    return NextResponse.json({
+      success: true,
+      message: "Media uploaded successfully",
+      item: {
+        id: newGallery.id,
+        titleAr: newGallery.titleAr,
+        titleFr: newGallery.titleFr,
+        descriptionAr: newGallery.descriptionAr,
+        descriptionFr: newGallery.descriptionFr,
+        type: newGallery.type,
+        category: newGallery.category,
+        status: newGallery.status,
+        src: newGallery.src,
+        thumbnail: newGallery.thumbnail,
+        url: newGallery.src,
+        uploadedAt: newGallery.createdAt,
+        size: fileSize ? `${(fileSize / (1024 * 1024)).toFixed(1)} MB` : "N/A",
+        views: 0,
+        downloads: 0,
+        uploadedBy: authResult.user?.name || "Admin",
+      },
+    });
+  } catch (error) {
+    console.error("[GALLERY API] Error uploading media:", error);
+
+    // Limpiar archivos temporales en caso de error
+    for (const filePath of tempFiles) {
+      try {
+        await unlink(filePath);
+      } catch (cleanupError) {
+        console.error("Error cleaning up file:", cleanupError);
+      }
+    }
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Internal server error",
+        message: error.message,
+      },
+      { status: 500 },
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
+}

@@ -27,15 +27,13 @@ export default function RootLayout({ children }) {
           footerActionLink: "text-[#2d5a27] hover:text-green-800",
         },
       }}
-      signInUrl="/sign-in"
-      signUpUrl="/sign-up"
-      afterSignOutUrl="/"
+      // QUITAMOS signInUrl y signUpUrl - Clerk usará sus rutas internas
+      // QUITAMOS afterSignOutUrl - no es necesario para tu caso
     >
       <html lang="fr">
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1" />
         </head>
-
         <body
           className={`${inter.className} bg-[#e8f5e9] min-h-screen flex flex-col`}
         >

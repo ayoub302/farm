@@ -3,13 +3,19 @@ import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 export default clerkMiddleware(async (auth, req) => {
-  const { userId } = auth();
+  const { userId } = await auth();
   const pathname = req.nextUrl.pathname;
 
-  // ==================== RUTAS IGNORADAS ====================
-  const ignoredPaths = ["/_next", "/favicon.ico", "/public", "/api/webhook"];
+  // ==================== ARCHIVOS ESTÁTICOS ====================
+  // Siempre permitir archivos estáticos
+  const isStaticFile =
+    /\.(jpg|jpeg|png|gif|mp4|webp|svg|ico|css|js|json|pdf|txt)$/.test(pathname);
 
-  if (ignoredPaths.some((path) => pathname.includes(path))) {
+  if (
+    isStaticFile ||
+    pathname.startsWith("/_next") ||
+    pathname === "/favicon.ico"
+  ) {
     return NextResponse.next();
   }
 
@@ -17,35 +23,14 @@ export default clerkMiddleware(async (auth, req) => {
   console.log(`[MIDDLEWARE] Path: ${pathname}`);
   console.log(`[MIDDLEWARE] User authenticated: ${!!userId}`);
 
-  // ==================== RUTAS PÚBLICAS ====================
-  const publicPaths = [
-    "/",
-    "/about",
-    "/contact",
-    "/sign-in",
-    "/sign-up",
-    "/access-denied",
-    "/error",
-    "/api/contact",
-    "/api/calendar",
-    "/api/activities",
-    "/api/harvests",
-    "/api/bookings",
-    "/api/messages",
-    "/api/admin/verify", // ← AÑADIDO: Permite que el endpoint de verificación sea accesible
-  ];
+  // ==================== SOLO RUTAS DE ADMIN SON PROTEGIDAS ====================
+  const isAdminRoute =
+    pathname.startsWith("/admin") || pathname.startsWith("/api/admin");
 
-  if (publicPaths.some((path) => pathname.startsWith(path))) {
-    console.log("[MIDDLEWARE] Public route - allowing access");
-    console.log("=".repeat(50));
-    return NextResponse.next();
-  }
-
-  // ==================== RUTAS DE ADMIN ====================
-  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
+  if (isAdminRoute) {
     console.log("[MIDDLEWARE] Admin route detected");
 
-    // 1. No autenticado → login
+    // Si no está autenticado, redirigir a sign-in
     if (!userId) {
       console.log("[MIDDLEWARE] No user - redirecting to sign-in");
       console.log("=".repeat(50));
@@ -55,7 +40,7 @@ export default clerkMiddleware(async (auth, req) => {
       return NextResponse.redirect(signInUrl);
     }
 
-    // 2. Verificar admin
+    // Verificar si es admin por email
     try {
       const { createClerkClient } = await import("@clerk/nextjs/server");
       const clerk = createClerkClient({
@@ -65,7 +50,6 @@ export default clerkMiddleware(async (auth, req) => {
       const user = await clerk.users.getUser(userId);
       const userEmail = user.emailAddresses[0]?.emailAddress?.toLowerCase();
 
-      // CORRECCIÓN: Manejar múltiples emails correctamente
       const adminEmails = process.env.ADMIN_EMAIL?.split(",")
         .map((email) => email.trim().toLowerCase())
         .filter((email) => email.length > 0);
@@ -80,7 +64,6 @@ export default clerkMiddleware(async (auth, req) => {
         );
       }
 
-      // CORRECCIÓN: Usar includes() en lugar de comparación directa
       const isAdmin = adminEmails.includes(userEmail);
 
       if (!isAdmin) {
@@ -99,18 +82,8 @@ export default clerkMiddleware(async (auth, req) => {
     }
   }
 
-  // ==================== OTRAS RUTAS PROTEGIDAS ====================
-  if (!userId) {
-    console.log("[MIDDLEWARE] Protected route - redirecting to sign-in");
-    console.log("=".repeat(50));
-
-    const signInUrl = new URL("/sign-in", req.url);
-    signInUrl.searchParams.set("redirect_url", req.url);
-    return NextResponse.redirect(signInUrl);
-  }
-
-  // ==================== ACCESO PERMITIDO ====================
-  console.log("[MIDDLEWARE] Access granted");
+  // ==================== TODAS LAS DEMÁS RUTAS SON PÚBLICAS ====================
+  console.log("[MIDDLEWARE] Public route - allowing access");
   console.log("=".repeat(50));
   return NextResponse.next();
 });

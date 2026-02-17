@@ -79,7 +79,8 @@ const textos = {
       "Une question? Besoin d'informations? Écrivez-nous et nous vous répondrons rapidement.",
     contactInfo: "Informations de contact",
     addressTitle: "Adresse",
-    address: "Chemin du Jardin, 123\nVillage Vert, Valence\nCode Postal: 46100",
+    address:
+      "Ferme Caïd Mansouri, Douar Alhamri, Commune de Boughriba\n, Province de Berkane, \nCode Postal: 60000",
     viewOnMaps: "Voir sur Google Maps →",
     phoneTitle: "Téléphone",
     hours: "Du lundi au vendredi: 9:00 - 18:00",

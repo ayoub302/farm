@@ -20,6 +20,10 @@ export default function Footer() {
   // Idioma para SSR (francés) y para cliente (idioma real del usuario)
   const currentLanguage = isClient ? language : "fr";
 
+  // Coordenadas aproximadas de Ferme Caïd Mansouri, Douar Alhamri, Berkane
+  const googleMapsUrl =
+    "https://www.google.com/maps?q=Ferme+Caïd+Mansouri,+Douar+Alhamri,+Berkane,+Morocco";
+
   const textos = {
     ar: {
       title: "مزرعة المنصوري",
@@ -32,7 +36,14 @@ export default function Footer() {
       faq: "الأسئلة المتكررة",
       giftExperiences: "هدايا التجارب",
       contact: "اتصل بنا",
-      address: "طريق الحديقة، 123\nالقرية الخضراء، بلنسية",
+      address: {
+        farm: "مزرعة القايد المنصوري",
+        douar: "دوار الحمري",
+        commune: "جماعة بوغريبة",
+        province: "إقليم بركان",
+        postal: "الرمز البريدي: 60000",
+        openInMaps: "افتح في خرائط جوجل",
+      },
       phone: "+212 661 105 373",
       email: "n_bachiri@hotmail.com",
       newsletter: "النشرة الإخبارية",
@@ -54,7 +65,14 @@ export default function Footer() {
       faq: "Questions fréquentes",
       giftExperiences: "Cadeaux d'expériences",
       contact: "Contact",
-      address: "Chemin du Jardin, 123\nVillage Vert, Valence",
+      address: {
+        farm: "Ferme Caïd Mansouri",
+        douar: "Douar Alhamri",
+        commune: "Commune de Boughriba",
+        province: "Province de Berkane",
+        postal: "Code Postal: 60000",
+        openInMaps: "Ouvrir dans Google Maps",
+      },
       phone: "+212 661 105 373",
       email: "n_bachiri@hotmail.com",
       newsletter: "Newsletter",
@@ -112,7 +130,9 @@ export default function Footer() {
 
           {/* Columna 2: Enlaces rápidos */}
           <div>
-            <h4 className="text-xl font-bold mb-6">{t.quickLinks}</h4>
+            <h4 className="text-xl font-bold mb-6">
+              {currentLanguage === "ar" ? t.quickLinks : "Liens rapides"}
+            </h4>
             <ul className="space-y-3">
               <li>
                 <Link
@@ -161,19 +181,53 @@ export default function Footer() {
           <div>
             <h4 className="text-xl font-bold mb-6">{t.contact}</h4>
             <ul className="space-y-4">
-              <li className="flex items-center">
-                <FaMapMarkerAlt className="text-yellow-400 mr-3" />
-                <span className="text-gray-300 whitespace-pre-line">
-                  {t.address}
-                </span>
+              <li className="flex items-start">
+                <FaMapMarkerAlt className="text-yellow-400 mr-3 mt-1 flex-shrink-0" />
+                <div className="flex flex-col">
+                  {/* Enlace completo a Google Maps */}
+                  <a
+                    href={googleMapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-gray-300 hover:text-white transition group"
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-medium group-hover:text-green-400 transition">
+                        {t.address.farm}
+                      </span>
+                      <span>{t.address.douar}</span>
+                      <span>{t.address.commune}</span>
+                      <span>{t.address.province}</span>
+                      <span className="font-medium mt-1">
+                        {t.address.postal}
+                      </span>
+                      {/* Botón para abrir en Google Maps */}
+                      <span className="inline-flex items-center mt-2 text-green-400 font-medium text-sm group-hover:underline">
+                        <span className="mr-1">📍</span>
+                        {t.address.openInMaps}
+                        <span className="ml-1">↗</span>
+                      </span>
+                    </div>
+                  </a>
+                </div>
               </li>
               <li className="flex items-center">
-                <FaPhone className="text-yellow-400 mr-3" />
-                <span className="text-gray-300">{t.phone}</span>
+                <FaPhone className="text-yellow-400 mr-3 flex-shrink-0" />
+                <a
+                  href={`tel:${t.phone.replace(/\s/g, "")}`}
+                  className="text-gray-300 hover:text-white hover:underline transition"
+                >
+                  {t.phone}
+                </a>
               </li>
               <li className="flex items-center">
-                <FaEnvelope className="text-yellow-400 mr-3" />
-                <span className="text-gray-300">{t.email}</span>
+                <FaEnvelope className="text-yellow-400 mr-3 flex-shrink-0" />
+                <a
+                  href={`mailto:${t.email}`}
+                  className="text-gray-300 hover:text-white hover:underline transition"
+                >
+                  {t.email}
+                </a>
               </li>
             </ul>
           </div>

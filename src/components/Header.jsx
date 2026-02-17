@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useLanguage } from "../components/LanguageContext";
+import { useClerk } from "@clerk/nextjs";
 import LanguageSwitcher from "./LanguageSwitcher";
 import AdminButton from "./AdminButton";
 import { FaBars, FaTimes, FaLeaf, FaCalendarAlt } from "react-icons/fa";
@@ -31,6 +32,86 @@ const textos = {
     reservarActividad: "Réserver une activité",
   },
 };
+
+// Componente simplificado de AdminButton para móvil
+function AdminButtonMobile({ onClick }) {
+  const { signOut } = useClerk();
+  const router = useRouter();
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.push("/");
+      onClick();
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
+
+  const handleDashboardClick = () => {
+    router.push("/admin/dashboard");
+    onClick();
+  };
+
+  return (
+    <div className="relative">
+      {/* BUTTON simple para móvil */}
+      <button
+        onClick={() => setShowAdminPanel(!showAdminPanel)}
+        className="w-full flex items-center justify-center gap-2 bg-gray-800 text-white px-4 py-4 rounded-xl font-bold hover:bg-gray-700 transition"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-5 w-5"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+            clipRule="evenodd"
+          />
+        </svg>
+        <span>Admin</span>
+      </button>
+
+      {/* Panel para móvil */}
+      {showAdminPanel && (
+        <div className="fixed inset-x-0 bottom-0 w-auto bg-white shadow-xl p-4 z-[1000] border border-gray-200 rounded-t-2xl">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-gray-800 text-sm">
+                Admin Panel
+              </h3>
+            </div>
+
+            <button
+              onClick={handleDashboardClick}
+              className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition text-sm font-medium"
+            >
+              Go to Dashboard
+            </button>
+
+            <button
+              onClick={handleSignOut}
+              className="w-full bg-gray-100 text-gray-700 py-2 rounded hover:bg-gray-200 transition text-sm font-medium mt-2"
+            >
+              Sign Out
+            </button>
+
+            <button
+              onClick={() => setShowAdminPanel(false)}
+              className="w-full mt-3 text-center text-gray-500 text-sm hover:text-gray-700 py-1"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -94,9 +175,8 @@ export default function Header() {
               </div>
             </div>
 
-            {/* Mobile */}
+            {/* Mobile - SOLO LanguageSwitcher y hamburguesa */}
             <div className="md:hidden flex items-center gap-3 shrink-0">
-              <AdminButton />
               <LanguageSwitcher />
 
               <button
@@ -117,30 +197,44 @@ export default function Header() {
       {/* Mobile Menu */}
       {isMenuOpen && (
         <div className="md:hidden bg-white border-b border-gray-200 animate-fade-in-down z-[999] relative">
-          <div className="px-4 pt-2 pb-6 space-y-2">
-            {t.navItems.map((item) => (
-              <Link
-                key={item.name}
-                href={item.path}
-                onClick={() => setIsMenuOpen(false)}
-                className={`block px-4 py-3 text-base font-bold rounded-xl transition-all ${
-                  pathname === item.path
-                    ? "bg-green-50 text-green-600"
-                    : "text-gray-700 hover:bg-green-50 hover:text-green-600"
-                }`}
-              >
-                {item.name}
-              </Link>
-            ))}
+          <div className="px-4 pt-2 pb-6">
+            {/* Navegación */}
+            <div className="space-y-2 mb-6">
+              {t.navItems.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.path}
+                  onClick={() => setIsMenuOpen(false)}
+                  className={`block px-4 py-3 text-base font-bold rounded-xl transition-all ${
+                    pathname === item.path
+                      ? "bg-green-50 text-green-600"
+                      : "text-gray-700 hover:bg-green-50 hover:text-green-600"
+                  }`}
+                >
+                  {item.name}
+                </Link>
+              ))}
+            </div>
 
-            <Link
-              href="/reservation"
-              onClick={() => setIsMenuOpen(false)}
-              className="flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-4 rounded-xl font-bold hover:bg-green-700 transition"
-            >
-              <FaCalendarAlt />
-              {t.reservarActividad}
-            </Link>
+            {/* Botones en la misma fila - AdminButton dentro del menú */}
+            <div className="flex flex-row gap-3">
+              {/* Botón Admin - DENTRO del menú */}
+              <div className="flex-1">
+                <AdminButtonMobile onClick={() => setIsMenuOpen(false)} />
+              </div>
+
+              {/* Botón Réserver une activité */}
+              <div className="flex-1">
+                <Link
+                  href="/reservation"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-4 rounded-xl font-bold hover:bg-green-700 transition"
+                >
+                  <FaCalendarAlt />
+                  <span>{t.reservarActividad}</span>
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       )}
