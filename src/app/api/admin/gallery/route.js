@@ -2,9 +2,18 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { PrismaClient } from "@prisma/client";
-import { writeFile, mkdir, unlink } from "fs/promises";
+import { mkdir, unlink } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
+import formidable from "formidable";
+import { IncomingMessage } from "http";
+
+// Desactivar bodyParser de Next.js para manejar archivos grandes
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
 const prisma = new PrismaClient();
 
@@ -24,16 +33,14 @@ const ensureDirectories = async () => {
   }
 };
 
-// Función para obtener o crear usuario - CORREGIDA (sin campo role)
+// Función para obtener o crear usuario
 const getOrCreateUser = async (clerkUserId) => {
   try {
-    // Buscar usuario por clerkUserId
     let user = await prisma.user.findUnique({
       where: { clerkUserId: clerkUserId },
     });
 
     if (!user) {
-      // Obtener datos de Clerk
       const clerkUser = await fetch(
         `https://api.clerk.com/v1/users/${clerkUserId}`,
         {
@@ -49,13 +56,11 @@ const getOrCreateUser = async (clerkUserId) => {
         clerkUser.email_addresses?.[0]?.email_address ||
         `${clerkUserId}@clerk.user`;
 
-      // Buscar por email
       user = await prisma.user.findUnique({
         where: { email: primaryEmail },
       });
 
       if (!user) {
-        // Crear nuevo usuario - SIN campo role
         user = await prisma.user.create({
           data: {
             clerkUserId,
@@ -64,12 +69,10 @@ const getOrCreateUser = async (clerkUserId) => {
               `${clerkUser.first_name || ""} ${clerkUser.last_name || ""}`.trim() ||
               clerkUser.username ||
               primaryEmail.split("@")[0],
-            // ✅ ELIMINADO: role: "ADMIN" - no existe en el modelo
             clerkData: JSON.stringify(clerkUser),
           },
         });
       } else {
-        // Actualizar usuario existente
         user = await prisma.user.update({
           where: { id: user.id },
           data: {
@@ -83,11 +86,11 @@ const getOrCreateUser = async (clerkUserId) => {
     return user;
   } catch (error) {
     console.error("Error getting/creating user:", error);
-    return null; // No crear usuario temporal
+    return null;
   }
 };
 
-// Verificación de autenticación - CORREGIDA
+// Verificación de autenticación
 const verifyAuth = async (request) => {
   try {
     const { userId } = await auth();
@@ -100,18 +103,16 @@ const verifyAuth = async (request) => {
       return { success: false, error: "No user authenticated", status: 401 };
     }
 
-    // Intentar obtener usuario real de la BD
     const user = await getOrCreateUser(userId);
 
     if (!user) {
       console.error("[GALLERY API] Could not get or create user");
 
-      // En desarrollo, permitir continuar sin usuario real para pruebas
       if (process.env.NODE_ENV === "development") {
         console.log("[DEV] Using fallback user for development");
         return {
           success: true,
-          user: null, // No hay usuario real
+          user: null,
           clerkUserId: userId,
           isDevMode: true,
         };
@@ -259,13 +260,12 @@ export async function GET(request) {
   }
 }
 
-// POST: Subir nuevo elemento - CORREGIDO
+// ✅ POST: Subir nuevo elemento con formidable (para archivos grandes)
 export async function POST(request) {
-  let fileUrl = "";
-  let thumbnailUrl = "";
-  let tempFiles = [];
+  let uploadedFiles = [];
 
   try {
+    // Verificar autenticación
     const authResult = await verifyAuth(request);
     if (!authResult.success) {
       return NextResponse.json(
@@ -276,43 +276,64 @@ export async function POST(request) {
 
     console.log(`[GALLERY API] Auth result:`, authResult);
 
-    // Verificar content-type
-    const contentType = request.headers.get("content-type") || "";
-    if (!contentType.includes("multipart/form-data")) {
-      return NextResponse.json(
-        { success: false, error: "Content-Type must be multipart/form-data" },
-        { status: 400 },
-      );
-    }
-
+    // Asegurar que los directorios existen
     await ensureDirectories();
 
-    // Obtener formData
-    let formData;
-    try {
-      formData = await request.formData();
-    } catch (formError) {
-      console.error("[GALLERY API] Error parsing formData:", formError);
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Failed to parse form data. File may be too large.",
-        },
-        { status: 400 },
-      );
-    }
+    // Convertir NextRequest a IncomingMessage para formidable
+    const req = new IncomingMessage(request);
 
-    const titleAr = formData.get("titleAr")?.toString().trim() || "";
-    const titleFr = formData.get("titleFr")?.toString().trim() || "";
-    const descriptionAr =
-      formData.get("descriptionAr")?.toString().trim() || "";
-    const descriptionFr =
-      formData.get("descriptionFr")?.toString().trim() || "";
-    const type = formData.get("type")?.toString() || "image";
-    const category = formData.get("category")?.toString() || "activities";
-    const status = formData.get("status")?.toString() || "draft";
-    const videoUrl = formData.get("videoUrl")?.toString().trim() || "";
+    // Crear formulario formidable
+    const form = formidable({
+      uploadDir: IMAGES_DIR, // Directorio temporal, luego moveremos según tipo
+      keepExtensions: true,
+      maxFileSize: 200 * 1024 * 1024, // 200MB máximo
+      maxFiles: 2, // Máximo 2 archivos (archivo principal + thumbnail)
+      allowEmptyFiles: false,
+    });
 
+    // Parsear el formulario
+    const parseForm = () => {
+      return new Promise((resolve, reject) => {
+        form.parse(req, async (err, fields, files) => {
+          if (err) {
+            console.error("[GALLERY API] Form parse error:", err);
+            reject(err);
+          } else {
+            resolve({ fields, files });
+          }
+        });
+      });
+    };
+
+    const { fields, files } = await parseForm();
+
+    // Extraer campos del formulario
+    const titleAr = Array.isArray(fields.titleAr)
+      ? fields.titleAr[0]
+      : fields.titleAr || "";
+    const titleFr = Array.isArray(fields.titleFr)
+      ? fields.titleFr[0]
+      : fields.titleFr || "";
+    const descriptionAr = Array.isArray(fields.descriptionAr)
+      ? fields.descriptionAr[0]
+      : fields.descriptionAr || "";
+    const descriptionFr = Array.isArray(fields.descriptionFr)
+      ? fields.descriptionFr[0]
+      : fields.descriptionFr || "";
+    const type = Array.isArray(fields.type)
+      ? fields.type[0]
+      : fields.type || "image";
+    const category = Array.isArray(fields.category)
+      ? fields.category[0]
+      : fields.category || "activities";
+    const status = Array.isArray(fields.status)
+      ? fields.status[0]
+      : fields.status || "draft";
+    const videoUrl = Array.isArray(fields.videoUrl)
+      ? fields.videoUrl[0]
+      : fields.videoUrl || "";
+
+    // Validar títulos
     if (!titleAr || !titleFr) {
       return NextResponse.json(
         { success: false, error: "Titles in both languages are required" },
@@ -321,33 +342,24 @@ export async function POST(request) {
     }
 
     let fileSize = 0;
-    let width = null;
-    let height = null;
     let mimeType = "";
+    let fileUrl = "";
+    let thumbnailUrl = "";
 
-    // Procesar IMAGEN
+    // Procesar archivo principal (imagen o video)
     if (type === "image") {
-      const imageFile = formData.get("image") || formData.get("file");
+      const imageFile = files.image || files.file;
 
-      if (!imageFile || imageFile.size === 0) {
+      if (!imageFile) {
         return NextResponse.json(
           { success: false, error: "Image file is required" },
           { status: 400 },
         );
       }
 
-      // Validar tamaño (50MB máximo para imágenes)
-      const maxSize = 50 * 1024 * 1024;
-      if (imageFile.size > maxSize) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Image size must be less than ${maxSize / (1024 * 1024)}MB`,
-          },
-          { status: 400 },
-        );
-      }
+      const fileInfo = Array.isArray(imageFile) ? imageFile[0] : imageFile;
 
+      // Validar tipo
       const allowedImageTypes = [
         "image/jpeg",
         "image/jpg",
@@ -355,7 +367,9 @@ export async function POST(request) {
         "image/gif",
         "image/webp",
       ];
-      if (!allowedImageTypes.includes(imageFile.type)) {
+
+      if (!allowedImageTypes.includes(fileInfo.mimetype || "")) {
+        await unlink(fileInfo.filepath).catch(() => {});
         return NextResponse.json(
           {
             success: false,
@@ -365,47 +379,27 @@ export async function POST(request) {
         );
       }
 
-      const bytes = await imageFile.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      fileSize = imageFile.size;
-      mimeType = imageFile.type;
-
-      const timestamp = Date.now();
-      const originalName = imageFile.name || "image";
-      const safeName = originalName.replace(/[^a-zA-Z0-9.]/g, "-");
-      const fileName = `${timestamp}-${safeName}`;
-      const filePath = path.join(IMAGES_DIR, fileName);
-
-      await writeFile(filePath, buffer);
+      // El archivo ya está en IMAGES_DIR, solo necesitamos la URL
+      const fileName = path.basename(fileInfo.filepath);
       fileUrl = `/uploads/images/${fileName}`;
-      tempFiles.push(filePath);
-
-      width = 1200;
-      height = 800;
-
-      // Procesar VIDEO
+      fileSize = fileInfo.size;
+      mimeType = fileInfo.mimetype;
+      uploadedFiles.push(fileInfo.filepath);
     } else if (type === "video") {
-      const videoFile = formData.get("video") || formData.get("file");
+      const videoFile = files.video || files.file;
 
-      if (videoFile && videoFile.size > 0) {
-        // Validar tamaño (200MB máximo para videos)
-        const maxSize = 200 * 1024 * 1024;
-        if (videoFile.size > maxSize) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: `Video size must be less than ${maxSize / (1024 * 1024)}MB`,
-            },
-            { status: 400 },
-          );
-        }
+      if (videoFile) {
+        const fileInfo = Array.isArray(videoFile) ? videoFile[0] : videoFile;
 
+        // Validar tipo
         const allowedVideoTypes = [
           "video/mp4",
           "video/webm",
           "video/quicktime",
         ];
-        if (!allowedVideoTypes.includes(videoFile.type)) {
+
+        if (!allowedVideoTypes.includes(fileInfo.mimetype || "")) {
+          await unlink(fileInfo.filepath).catch(() => {});
           return NextResponse.json(
             {
               success: false,
@@ -415,20 +409,44 @@ export async function POST(request) {
           );
         }
 
-        const bytes = await videoFile.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        fileSize = videoFile.size;
-        mimeType = videoFile.type;
+        // Mover archivo a VIDEOS_DIR
+        const videoFileName = path.basename(fileInfo.filepath);
+        const videoNewPath = path.join(VIDEOS_DIR, videoFileName);
 
-        const timestamp = Date.now();
-        const originalName = videoFile.name || "video";
-        const safeName = originalName.replace(/[^a-zA-Z0-9.]/g, "-");
-        const fileName = `${timestamp}-${safeName}`;
-        const filePath = path.join(VIDEOS_DIR, fileName);
+        // Renombrar/mover el archivo
+        const { rename } = require("fs/promises");
+        await rename(fileInfo.filepath, videoNewPath);
 
-        await writeFile(filePath, buffer);
-        fileUrl = `/uploads/videos/${fileName}`;
-        tempFiles.push(filePath);
+        fileUrl = `/uploads/videos/${videoFileName}`;
+        fileSize = fileInfo.size;
+        mimeType = fileInfo.mimetype;
+        uploadedFiles.push(videoNewPath);
+
+        // Procesar thumbnail si existe
+        const thumbnailFile = files.thumbnail;
+        if (thumbnailFile) {
+          const thumbInfo = Array.isArray(thumbnailFile)
+            ? thumbnailFile[0]
+            : thumbnailFile;
+
+          const allowedThumbnailTypes = [
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/webp",
+          ];
+
+          if (allowedThumbnailTypes.includes(thumbInfo.mimetype || "")) {
+            const thumbFileName = `thumb-${Date.now()}-${path.basename(thumbInfo.originalFilename || "thumb")}`;
+            const thumbNewPath = path.join(THUMBNAILS_DIR, thumbFileName);
+
+            await rename(thumbInfo.filepath, thumbNewPath);
+            thumbnailUrl = `/uploads/thumbnails/${thumbFileName}`;
+            uploadedFiles.push(thumbNewPath);
+          } else {
+            await unlink(thumbInfo.filepath).catch(() => {});
+          }
+        }
       } else if (videoUrl) {
         try {
           new URL(videoUrl);
@@ -446,40 +464,9 @@ export async function POST(request) {
           { status: 400 },
         );
       }
-
-      // Procesar thumbnail para video
-      const thumbnailFile = formData.get("thumbnail");
-      if (thumbnailFile && thumbnailFile.size > 0) {
-        const allowedThumbnailTypes = [
-          "image/jpeg",
-          "image/jpg",
-          "image/png",
-          "image/gif",
-          "image/webp",
-        ];
-        if (!allowedThumbnailTypes.includes(thumbnailFile.type)) {
-          return NextResponse.json(
-            { success: false, error: "Invalid thumbnail format" },
-            { status: 400 },
-          );
-        }
-
-        const bytes = await thumbnailFile.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-
-        const timestamp = Date.now();
-        const originalName = thumbnailFile.name || "thumbnail";
-        const safeName = originalName.replace(/[^a-zA-Z0-9.]/g, "-");
-        const fileName = `thumbnail-${timestamp}-${safeName}`;
-        const filePath = path.join(THUMBNAILS_DIR, fileName);
-
-        await writeFile(filePath, buffer);
-        thumbnailUrl = `/uploads/thumbnails/${fileName}`;
-        tempFiles.push(filePath);
-      }
     }
 
-    // ✅ Guardar en base de datos - SIN uploadedById si no hay usuario real
+    // Guardar en base de datos
     const galleryData = {
       id: Date.now().toString(),
       titleAr,
@@ -492,14 +479,11 @@ export async function POST(request) {
       src: fileUrl,
       thumbnail: thumbnailUrl || null,
       size: fileSize || null,
-      width,
-      height,
       mimeType: mimeType || null,
       externalUrl: type === "video" && videoUrl ? videoUrl : null,
       ...(status === "published" && { publishedAt: new Date() }),
     };
 
-    // Solo añadir uploadedById si tenemos un usuario real
     if (authResult.user && authResult.user.id) {
       galleryData.uploadedById = authResult.user.id;
     }
@@ -538,7 +522,7 @@ export async function POST(request) {
     console.error("[GALLERY API] Error uploading media:", error);
 
     // Limpiar archivos temporales en caso de error
-    for (const filePath of tempFiles) {
+    for (const filePath of uploadedFiles) {
       try {
         await unlink(filePath);
       } catch (cleanupError) {
