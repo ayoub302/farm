@@ -1255,15 +1255,6 @@ export default function AdminDashboard() {
                     <p className="text-xs sm:text-sm text-gray-400 mt-2">
                       Messages from contact form will appear here
                     </p>
-                    <div className="mt-4">
-                      <Link
-                        href="/contacto"
-                        target="_blank"
-                        className="text-xs sm:text-sm text-[#2d5a27] hover:underline"
-                      >
-                        Test contact form →
-                      </Link>
-                    </div>
                   </div>
                 )}
               </div>
@@ -1348,15 +1339,6 @@ export default function AdminDashboard() {
                     <p className="text-xs sm:text-sm text-gray-400 mt-2">
                       Reservations will appear here when users book activities
                     </p>
-                    <div className="mt-4">
-                      <Link
-                        href="/reservation"
-                        target="_blank"
-                        className="text-xs sm:text-sm text-[#2d5a27] hover:underline"
-                      >
-                        Test reservation form →
-                      </Link>
-                    </div>
                   </div>
                 )}
               </div>
@@ -1517,44 +1499,6 @@ export default function AdminDashboard() {
               </Link>
             </div>
           </div>
-
-          {/* Empty State */}
-          {stats.totalReservations === 0 &&
-            stats.totalMessages === 0 &&
-            stats.totalHarvests === 0 &&
-            stats.totalGalleryItems === 0 && (
-              <div className="mt-6 sm:mt-8 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 text-center">
-                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800 mb-3 sm:mb-4">
-                  Welcome to your Dashboard! 🎉
-                </h2>
-                <p className="text-gray-600 text-sm sm:text-base mb-4 sm:mb-6 max-w-2xl mx-auto">
-                  Get started by creating harvests, uploading media, or testing
-                  the reservation form. Your dashboard will show real-time
-                  statistics as users interact with your farm.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <Link
-                    href="/admin/gallery"
-                    className="bg-[#2d5a27] text-white px-4 py-3 sm:px-6 sm:py-3 rounded-lg hover:bg-green-800 transition font-medium text-sm sm:text-base"
-                  >
-                    Upload Media
-                  </Link>
-                  <Link
-                    href="/admin/harvests/new"
-                    className="bg-white text-[#2d5a27] border border-[#2d5a27] px-4 py-3 sm:px-6 sm:py-3 rounded-lg hover:bg-green-50 transition font-medium text-sm sm:text-base"
-                  >
-                    Create First Harvest
-                  </Link>
-                  <Link
-                    href="/reservation"
-                    target="_blank"
-                    className="bg-white text-[#2d5a27] border border-[#2d5a27] px-4 py-3 sm:px-6 sm:py-3 rounded-lg hover:bg-green-50 transition font-medium text-sm sm:text-base"
-                  >
-                    Test Reservation Form
-                  </Link>
-                </div>
-              </div>
-            )}
         </div>
 
         {/* Footer */}
