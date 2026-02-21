@@ -10,25 +10,12 @@ import {
 } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 
-export default function AdminButton() {
+export default function AdminButton({ isMobile = false }) {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const { signOut } = useClerk();
   const router = useRouter();
   const panelRef = useRef(null);
   const buttonRef = useRef(null);
-
-  // Detect mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   // Close panel on outside click
   useEffect(() => {
@@ -66,31 +53,28 @@ export default function AdminButton() {
     router.push("/admin/dashboard");
   };
 
-  const panelPosition = isMobile
-    ? "fixed inset-x-0 bottom-0"
-    : "absolute top-full right-0 mt-2";
-
-  const panelWidth = isMobile ? "w-auto" : "w-56";
-
   return (
-    <div ref={buttonRef} className="relative z-40 shrink-0">
-      {/* BUTTON */}
+    <div ref={buttonRef} className="relative w-full">
+      {/* BUTTON - Tamaño grande para móvil, normal para desktop */}
       <button
         onClick={() => setShowAdminPanel(!showAdminPanel)}
-        className="
-          flex items-center gap-2
+        className={`
+          flex items-center justify-center gap-2
           bg-gray-800 text-white
-          px-3 py-3 sm:px-4 sm:py-2
-          rounded-full sm:rounded-lg
+          font-bold border border-gray-700
           shadow-lg hover:bg-gray-700
           transition-all duration-200
-          font-medium
-          border border-gray-700
-        "
+          w-full
+          ${
+            isMobile
+              ? "px-4 py-4 rounded-xl text-base"
+              : "px-3 py-3 sm:px-4 sm:py-2 rounded-full sm:rounded-lg text-sm sm:text-base"
+          }
+        `}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          className="h-4 w-4"
+          className={`${isMobile ? "h-5 w-5" : "h-4 w-4 sm:h-5 sm:w-5"}`}
           viewBox="0 0 20 20"
           fill="currentColor"
         >
@@ -100,18 +84,17 @@ export default function AdminButton() {
             clipRule="evenodd"
           />
         </svg>
-        {!isMobile && <span>Admin</span>}
+        <span>Admin</span>
       </button>
 
-      {/* PANEL */}
+      {/* PANEL - MISMO COMPORTAMIENTO EN TODOS LOS DISPOSITIVOS */}
       {showAdminPanel && (
         <div
           ref={panelRef}
           className={`
-            ${panelPosition} ${panelWidth}
+            absolute ${isMobile ? "bottom-full left-0 mb-2 w-full" : "top-full right-0 mt-2 w-56"}
             bg-white shadow-xl p-4 z-[999]
-            border border-gray-200
-            ${isMobile ? "rounded-t-2xl" : "rounded-lg"}
+            border border-gray-200 rounded-lg
           `}
           onClick={(e) => e.stopPropagation()}
         >
@@ -147,21 +130,12 @@ export default function AdminButton() {
 
               <button
                 onClick={handleSignOut}
-                className="w-full bg-gray-100 text-gray-700 py-2 rounded hover:bg-gray-200 transition text-sm font-medium mt-2"
+                className="w-full bg-gray-100 text-gray-700 py-2 rounded hover:bg-gray-200 transition text-sm font-medium"
               >
                 Sign Out
               </button>
             </div>
           </SignedIn>
-
-          {isMobile && (
-            <button
-              onClick={() => setShowAdminPanel(false)}
-              className="w-full mt-3 text-center text-gray-500 text-sm hover:text-gray-700 py-1"
-            >
-              Close
-            </button>
-          )}
         </div>
       )}
     </div>

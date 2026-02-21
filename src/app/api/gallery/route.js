@@ -2,27 +2,65 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { PrismaClient } from "@prisma/client";
-import { writeFile, mkdir, unlink } from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
+import { v2 as cloudinary } from "cloudinary";
+
+// Configurar Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const prisma = new PrismaClient();
 
-// Directorios
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
-const IMAGES_DIR = path.join(UPLOAD_DIR, "images");
-const VIDEOS_DIR = path.join(UPLOAD_DIR, "videos");
-const THUMBNAILS_DIR = path.join(UPLOAD_DIR, "thumbnails");
+// Función para subir a Cloudinary
+async function uploadToCloudinary(file, type) {
+  try {
+    console.log(`[CLOUDINARY] Uploading ${type}...`);
 
-// Asegurar directorios
-const ensureDirectories = async () => {
-  const dirs = [UPLOAD_DIR, IMAGES_DIR, VIDEOS_DIR, THUMBNAILS_DIR];
-  for (const dir of dirs) {
-    if (!existsSync(dir)) {
-      await mkdir(dir, { recursive: true });
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    // Crear base64
+    const base64 = buffer.toString("base64");
+    const dataURI = `data:${file.type};base64,${base64}`;
+
+    // Opciones según tipo
+    const options = {
+      folder: type === "image" ? "gallery/images" : "gallery/videos",
+      resource_type: type === "image" ? "image" : "video",
+      use_filename: true,
+      unique_filename: true,
+    };
+
+    // Para videos grandes, usar chunking
+    if (type === "video") {
+      options.chunk_size = 6000000; // 6MB chunks
+      options.eager = [
+        { width: 300, height: 300, crop: "pad", audio_codec: "none" }, // thumbnail automático
+      ];
+      options.eager_async = true;
     }
+
+    const result = await cloudinary.uploader.upload(dataURI, options);
+
+    console.log(`[CLOUDINARY] Upload successful: ${result.public_id}`);
+
+    return {
+      url: result.secure_url,
+      thumbnail: type === "video" ? result.eager?.[0]?.secure_url : null,
+      size: file.size,
+      mimeType: file.type,
+      width: result.width,
+      height: result.height,
+      publicId: result.public_id,
+      format: result.format,
+    };
+  } catch (error) {
+    console.error("[CLOUDINARY] Upload error:", error);
+    throw error;
   }
-};
+}
 
 // Función para obtener o crear usuario
 const getOrCreateUser = async (clerkUserId) => {
@@ -245,6 +283,7 @@ export async function GET(request) {
         views: gallery.views || 0,
         downloads: gallery.downloads || 0,
         uploadedBy: gallery.uploadedBy?.name || "Admin",
+        cloudinaryId: gallery.cloudinaryId || null,
       }));
 
       return NextResponse.json({
@@ -258,47 +297,25 @@ export async function GET(request) {
     } catch (dbError) {
       console.error("[GALLERY API] Database error:", dbError);
 
-      if (process.env.NODE_ENV === "development") {
-        const sampleItems = [
-          {
-            id: "1",
-            titleAr: "صورة النشاط",
-            titleFr: "Image d'activité",
-            descriptionAr: "وصف النشاط بالعربية",
-            descriptionFr: "Description de l'activité en français",
-            type: "image",
-            category: "activities",
-            status: "published",
-            src: "/images/sample.jpg",
-            url: "/images/sample.jpg",
-            uploadedAt: new Date().toISOString(),
-            size: "2.3 MB",
-            views: 150,
-            downloads: 25,
-            uploadedBy: "Admin",
-          },
-        ];
-
-        return NextResponse.json({
-          success: true,
-          items: sampleItems,
-          total: sampleItems.length,
-          limit,
-          skip,
-          filters: { type, category, status, search },
-          _debug: { note: "Using sample data", dbError: dbError.message },
-        });
-      }
-
       return NextResponse.json(
-        { success: false, error: "DATABASE_ERROR" },
+        {
+          success: false,
+          error: "DATABASE_ERROR",
+          items: [],
+          total: 0,
+        },
         { status: 503 },
       );
     }
   } catch (error) {
     console.error("[GALLERY API] Unexpected error:", error);
     return NextResponse.json(
-      { success: false, error: "INTERNAL_ERROR" },
+      {
+        success: false,
+        error: "INTERNAL_ERROR",
+        items: [],
+        total: 0,
+      },
       { status: 500 },
     );
   } finally {
@@ -306,12 +323,8 @@ export async function GET(request) {
   }
 }
 
-// ✅ POST: Subir nuevo elemento - VERSIÓN CORREGIDA CON SUBIDA REAL
+// ✅ POST: Subir a Cloudinary
 export async function POST(request) {
-  let fileUrl = "";
-  let thumbnailUrl = "";
-  let tempFiles = [];
-
   try {
     console.log("[GALLERY API] POST request received");
 
@@ -324,9 +337,6 @@ export async function POST(request) {
     }
 
     console.log(`[GALLERY API] User ${authResult.userId} attempting upload`);
-
-    // Asegurar que los directorios existen
-    await ensureDirectories();
 
     // Obtener formData
     const formData = await request.formData();
@@ -351,10 +361,7 @@ export async function POST(request) {
       );
     }
 
-    let fileSize = 0;
-    let width = null;
-    let height = null;
-    let mimeType = "";
+    let cloudinaryData = {};
     let finalFileUrl = "";
     let finalThumbnailUrl = "";
 
@@ -369,18 +376,6 @@ export async function POST(request) {
         );
       }
 
-      // Validar tamaño (10MB máximo)
-      const maxSize = 10 * 1024 * 1024;
-      if (imageFile.size > maxSize) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Image size must be less than ${maxSize / (1024 * 1024)}MB`,
-          },
-          { status: 400 },
-        );
-      }
-
       // Validar tipo
       const allowedImageTypes = [
         "image/jpeg",
@@ -388,88 +383,80 @@ export async function POST(request) {
         "image/png",
         "image/gif",
         "image/webp",
+        "image/heic",
+        "image/heif",
       ];
+
       if (!allowedImageTypes.includes(imageFile.type)) {
         return NextResponse.json(
           {
             success: false,
-            error: "Invalid image format. Allowed: JPEG, JPG, PNG, GIF, WebP",
+            error:
+              "Invalid image format. Allowed: JPEG, JPG, PNG, GIF, WebP, HEIC",
           },
           { status: 400 },
         );
       }
 
-      // Guardar archivo
-      const bytes = await imageFile.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      fileSize = imageFile.size;
-      mimeType = imageFile.type;
-
-      const timestamp = Date.now();
-      const originalName = imageFile.name || "image";
-      const safeName = originalName.replace(/[^a-zA-Z0-9.]/g, "-");
-      const fileName = `${timestamp}-${safeName}`;
-      const filePath = path.join(IMAGES_DIR, fileName);
-
-      await writeFile(filePath, buffer);
-      finalFileUrl = `/uploads/images/${fileName}`;
-      tempFiles.push(filePath);
-
-      // Dimensiones por defecto
-      width = 1200;
-      height = 800;
+      // Subir a Cloudinary
+      cloudinaryData = await uploadToCloudinary(imageFile, "image");
+      finalFileUrl = cloudinaryData.url;
     } else if (type === "video") {
       const videoFile = formData.get("video") || formData.get("file");
 
       if (videoFile && videoFile.size > 0) {
-        // Validar tamaño (100MB máximo)
-        const maxSize = 100 * 1024 * 1024;
-        if (videoFile.size > maxSize) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: `Video size must be less than ${maxSize / (1024 * 1024)}MB`,
-            },
-            { status: 400 },
-          );
-        }
-
         // Validar tipo
         const allowedVideoTypes = [
           "video/mp4",
           "video/webm",
           "video/quicktime",
+          "video/x-msvideo",
+          "video/x-matroska",
         ];
+
         if (!allowedVideoTypes.includes(videoFile.type)) {
           return NextResponse.json(
             {
               success: false,
-              error: "Invalid video format. Allowed: MP4, WebM, MOV",
+              error: "Invalid video format. Allowed: MP4, WebM, MOV, AVI, MKV",
             },
             { status: 400 },
           );
         }
 
-        // Guardar archivo
-        const bytes = await videoFile.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        fileSize = videoFile.size;
-        mimeType = videoFile.type;
+        // Subir video a Cloudinary
+        cloudinaryData = await uploadToCloudinary(videoFile, "video");
+        finalFileUrl = cloudinaryData.url;
+        finalThumbnailUrl = cloudinaryData.thumbnail;
 
-        const timestamp = Date.now();
-        const originalName = videoFile.name || "video";
-        const safeName = originalName.replace(/[^a-zA-Z0-9.]/g, "-");
-        const fileName = `${timestamp}-${safeName}`;
-        const filePath = path.join(VIDEOS_DIR, fileName);
+        // Procesar thumbnail si se subió uno adicional
+        const thumbnailFile = formData.get("thumbnail");
+        if (thumbnailFile && thumbnailFile.size > 0) {
+          const allowedThumbnailTypes = [
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/webp",
+          ];
 
-        await writeFile(filePath, buffer);
-        finalFileUrl = `/uploads/videos/${fileName}`;
-        tempFiles.push(filePath);
+          if (allowedThumbnailTypes.includes(thumbnailFile.type)) {
+            const thumbResult = await uploadToCloudinary(
+              thumbnailFile,
+              "image",
+            );
+            finalThumbnailUrl = thumbResult.url;
+          }
+        }
       } else if (videoUrl) {
         try {
           new URL(videoUrl);
           finalFileUrl = videoUrl;
-          mimeType = "video/url";
+          cloudinaryData = {
+            url: videoUrl,
+            size: 0,
+            mimeType: "video/url",
+            publicId: null,
+          };
         } catch {
           return NextResponse.json(
             { success: false, error: "Invalid video URL" },
@@ -482,180 +469,70 @@ export async function POST(request) {
           { status: 400 },
         );
       }
-
-      // Procesar thumbnail para video
-      const thumbnailFile = formData.get("thumbnail");
-      if (thumbnailFile && thumbnailFile.size > 0) {
-        const allowedThumbnailTypes = [
-          "image/jpeg",
-          "image/jpg",
-          "image/png",
-          "image/gif",
-          "image/webp",
-        ];
-        if (!allowedThumbnailTypes.includes(thumbnailFile.type)) {
-          return NextResponse.json(
-            { success: false, error: "Invalid thumbnail format" },
-            { status: 400 },
-          );
-        }
-
-        const bytes = await thumbnailFile.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-
-        const timestamp = Date.now();
-        const originalName = thumbnailFile.name || "thumbnail";
-        const safeName = originalName.replace(/[^a-zA-Z0-9.]/g, "-");
-        const fileName = `thumbnail-${timestamp}-${safeName}`;
-        const filePath = path.join(THUMBNAILS_DIR, fileName);
-
-        await writeFile(filePath, buffer);
-        finalThumbnailUrl = `/uploads/thumbnails/${fileName}`;
-        tempFiles.push(filePath);
-      }
     }
 
-    // Guardar en la base de datos
-    try {
-      const newGallery = await prisma.gallery.create({
-        data: {
-          id: Date.now().toString(), // ID único como string
-          titleAr,
-          titleFr,
-          descriptionAr,
-          descriptionFr,
-          type,
-          category,
-          status,
-          src: finalFileUrl,
-          thumbnail: finalThumbnailUrl || null,
-          size: fileSize || null,
-          width,
-          height,
-          mimeType: mimeType || null,
-          uploadedById: authResult.user?.id || null,
-          externalUrl: type === "video" && videoUrl ? videoUrl : null,
-          ...(status === "published" && { publishedAt: new Date() }),
-        },
-      });
+    // Obtener usuario de base de datos
+    const dbUser = await getOrCreateUser(authResult.userId);
 
-      console.log(`[GALLERY API] Created new item: ${newGallery.id}`);
+    // Guardar en la base de datos con URLs de Cloudinary
+    const newGallery = await prisma.gallery.create({
+      data: {
+        id: Date.now().toString(),
+        titleAr,
+        titleFr,
+        descriptionAr,
+        descriptionFr,
+        type,
+        category,
+        status,
+        src: finalFileUrl,
+        thumbnail: finalThumbnailUrl || null,
+        size: cloudinaryData.size || null,
+        mimeType: cloudinaryData.mimeType || null,
+        width: cloudinaryData.width || null,
+        height: cloudinaryData.height || null,
+        cloudinaryId: cloudinaryData.publicId || null,
+        uploadedById: dbUser?.id || null,
+        externalUrl: type === "video" && videoUrl ? videoUrl : null,
+        ...(status === "published" && { publishedAt: new Date() }),
+      },
+    });
 
-      // Devolver el item creado
-      return NextResponse.json({
-        success: true,
-        message: "Media uploaded successfully",
-        item: {
-          id: newGallery.id,
-          titleAr: newGallery.titleAr,
-          titleFr: newGallery.titleFr,
-          descriptionAr: newGallery.descriptionAr,
-          descriptionFr: newGallery.descriptionFr,
-          type: newGallery.type,
-          category: newGallery.category,
-          status: newGallery.status,
-          src: newGallery.src,
-          thumbnail: newGallery.thumbnail,
-          url: newGallery.src,
-          uploadedAt: newGallery.createdAt,
-          size: fileSize
-            ? `${(fileSize / (1024 * 1024)).toFixed(1)} MB`
-            : "N/A",
-          views: 0,
-          downloads: 0,
-          uploadedBy: "Admin",
-        },
-      });
-    } catch (dbError) {
-      console.error("[GALLERY API] Database error:", dbError);
+    console.log(`[GALLERY API] Created new item: ${newGallery.id}`);
 
-      // Limpiar archivos si hay error en BD
-      for (const filePath of tempFiles) {
-        try {
-          await unlink(filePath);
-        } catch (cleanupError) {
-          console.error("Error cleaning up file:", cleanupError);
-        }
-      }
-
-      // En desarrollo, simular éxito
-      if (process.env.NODE_ENV === "development") {
-        return NextResponse.json({
-          success: true,
-          message: "Media uploaded successfully (demo mode - DB error)",
-          item: {
-            id: Date.now().toString(),
-            titleAr,
-            titleFr,
-            descriptionAr,
-            descriptionFr,
-            type,
-            category,
-            status,
-            src: finalFileUrl || "/images/sample.jpg",
-            thumbnail: finalThumbnailUrl || null,
-            url: finalFileUrl || "/images/sample.jpg",
-            uploadedAt: new Date().toISOString(),
-            size: fileSize
-              ? `${(fileSize / (1024 * 1024)).toFixed(1)} MB`
-              : "2.3 MB",
-            views: 0,
-            downloads: 0,
-            uploadedBy: "Admin",
-          },
-          isDemo: true,
-          hadError: true,
-        });
-      }
-
-      throw dbError;
-    }
+    return NextResponse.json({
+      success: true,
+      message: "Media uploaded successfully to Cloudinary",
+      item: {
+        id: newGallery.id,
+        titleAr: newGallery.titleAr,
+        titleFr: newGallery.titleFr,
+        descriptionAr: newGallery.descriptionAr,
+        descriptionFr: newGallery.descriptionFr,
+        type: newGallery.type,
+        category: newGallery.category,
+        status: newGallery.status,
+        src: newGallery.src,
+        thumbnail: newGallery.thumbnail,
+        url: newGallery.src,
+        uploadedAt: newGallery.createdAt,
+        size: cloudinaryData.size
+          ? `${(cloudinaryData.size / (1024 * 1024)).toFixed(1)} MB`
+          : "N/A",
+        views: 0,
+        downloads: 0,
+        uploadedBy: dbUser?.name || "Admin",
+        cloudinaryId: cloudinaryData.publicId,
+      },
+    });
   } catch (error) {
-    console.error("[GALLERY API] POST Error:", error);
-
-    // Limpiar archivos temporales en caso de error
-    for (const filePath of tempFiles) {
-      try {
-        await unlink(filePath);
-      } catch (cleanupError) {
-        console.error("Error cleaning up file:", cleanupError);
-      }
-    }
-
-    // En desarrollo, simular éxito incluso en error
-    if (process.env.NODE_ENV === "development") {
-      return NextResponse.json({
-        success: true,
-        message:
-          "Upload simulated (error occurred but returning success for dev)",
-        item: {
-          id: Date.now().toString(),
-          titleAr: "عنوان تجريبي",
-          titleFr: "Titre de démonstration",
-          descriptionAr: "وصف تجريبي",
-          descriptionFr: "Description de démonstration",
-          type: "image",
-          category: "activities",
-          status: "draft",
-          src: "/images/sample.jpg",
-          thumbnail: null,
-          url: "/images/sample.jpg",
-          uploadedAt: new Date().toISOString(),
-          size: "2.3 MB",
-          views: 0,
-          downloads: 0,
-          uploadedBy: "Admin",
-        },
-        isDemo: true,
-        hadError: true,
-      });
-    }
+    console.error("[GALLERY API] Upload error:", error);
 
     return NextResponse.json(
       {
         success: false,
         error: "UPLOAD_ERROR",
-        message: "Failed to process upload",
+        message: error.message || "Failed to process upload",
       },
       { status: 500 },
     );
@@ -670,7 +547,7 @@ export async function OPTIONS() {
     {
       success: true,
       methods: ["GET", "POST", "OPTIONS"],
-      description: "Gallery management API",
+      description: "Gallery management API with Cloudinary",
     },
     { status: 200 },
   );

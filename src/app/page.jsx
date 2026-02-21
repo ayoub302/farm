@@ -1242,8 +1242,8 @@ export default function HomePage() {
                 <h3 className="text-xl font-bold mb-4">
                   {t.contactInformation}
                 </h3>
-                <p className="text-gray-200">📞 +212 612 345 678</p>
-                <p className="text-gray-200">✉️ info@fermealmanssouri.com</p>
+                <p className="text-gray-200">📞 +212 661 105 373</p>
+                <p className="text-gray-200">✉️ n_bachiri@hotmail.com</p>
               </div>
             </div>
           </div>

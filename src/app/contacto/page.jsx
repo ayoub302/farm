@@ -111,7 +111,7 @@ const textos = {
     placeholderName: "Entrez votre nom complet",
     placeholderEmail: "exemple@email.com",
     placeholderPhone: "+212 612345678",
-    phoneNote: "Doit commencer par +212 suivi de 9 chiffres",
+    phoneNote: "9 chiffres",
     placeholderMessage: "Écrivez votre message ici...",
     note: "Tous les champs sont obligatoires. Nous répondrons dans les 24 heures.",
     send: "Envoyer le message",

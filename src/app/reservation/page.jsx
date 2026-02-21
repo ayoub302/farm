@@ -100,7 +100,7 @@ const textos = {
     fullName: "Nom complet *",
     email: "Email *",
     phone: "Téléphone *",
-    phoneNote: "Doit commencer par +212 suivi de 9 chiffres",
+    phoneNote: "9 chiffres",
     reservationDetails: "Détails de la réservation",
     visitDate: "Date de visite *",
     visitTime: "Heure de visite *",
@@ -431,7 +431,7 @@ export default function ReservationPage() {
       {/* Enlace de vuelta */}
       <div className="mb-8">
         <Link
-          href="/contact"
+          href="/contacto"
           className="inline-flex items-center text-green-600 hover:text-green-800 font-semibold"
         >
           <FaArrowLeft className="mr-2" />
@@ -526,7 +526,7 @@ export default function ReservationPage() {
               <div className="flex items-start">
                 <FaPhone className="text-green-600 mt-1 mr-3" />
                 <div>
-                  <p className="font-bold text-gray-700">+212 612 345 678</p>
+                  <p className="font-bold text-gray-700">+212 661 105 373</p>
                   <p className="text-gray-600 text-sm">Lun-Ven: 9h-18h</p>
                 </div>
               </div>
@@ -534,7 +534,7 @@ export default function ReservationPage() {
                 <FaEnvelope className="text-green-600 mt-1 mr-3" />
                 <div>
                   <p className="font-bold text-gray-700">
-                    reservas@granjalahuertafeliz.com
+                    n_bachiri@hotmail.com
                   </p>
                   <p className="text-gray-600 text-sm">Réponse sous 24h</p>
                 </div>

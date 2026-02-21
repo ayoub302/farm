@@ -1257,7 +1257,7 @@ export default function AdminDashboard() {
                     </p>
                     <div className="mt-4">
                       <Link
-                        href="/contact"
+                        href="/contacto"
                         target="_blank"
                         className="text-xs sm:text-sm text-[#2d5a27] hover:underline"
                       >

@@ -2,36 +2,65 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { PrismaClient } from "@prisma/client";
-import { mkdir, unlink } from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
-import formidable from "formidable";
-import { IncomingMessage } from "http";
+import { v2 as cloudinary } from "cloudinary";
 
-// Desactivar bodyParser de Next.js para manejar archivos grandes
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+// Configurar Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const prisma = new PrismaClient();
 
-// Directorios
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
-const IMAGES_DIR = path.join(UPLOAD_DIR, "images");
-const VIDEOS_DIR = path.join(UPLOAD_DIR, "videos");
-const THUMBNAILS_DIR = path.join(UPLOAD_DIR, "thumbnails");
+// Función para subir a Cloudinary
+async function uploadToCloudinary(file, type) {
+  try {
+    console.log(`[CLOUDINARY] Uploading ${type}...`);
 
-// Asegurar directorios
-const ensureDirectories = async () => {
-  const dirs = [UPLOAD_DIR, IMAGES_DIR, VIDEOS_DIR, THUMBNAILS_DIR];
-  for (const dir of dirs) {
-    if (!existsSync(dir)) {
-      await mkdir(dir, { recursive: true });
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    // Crear base64
+    const base64 = buffer.toString("base64");
+    const dataURI = `data:${file.type};base64,${base64}`;
+
+    // Opciones según tipo
+    const options = {
+      folder: type === "image" ? "gallery/images" : "gallery/videos",
+      resource_type: type === "image" ? "image" : "video",
+      use_filename: true,
+      unique_filename: true,
+    };
+
+    // Para videos, generar thumbnail automático
+    if (type === "video") {
+      options.chunk_size = 6000000; // 6MB chunks para videos grandes
+      options.eager = [
+        { width: 300, height: 300, crop: "pad", audio_codec: "none" },
+      ];
+      options.eager_async = true;
     }
+
+    const result = await cloudinary.uploader.upload(dataURI, options);
+
+    console.log(`[CLOUDINARY] Upload successful: ${result.public_id}`);
+
+    return {
+      url: result.secure_url,
+      thumbnail: type === "video" ? result.eager?.[0]?.secure_url : null,
+      size: file.size,
+      mimeType: file.type,
+      width: result.width,
+      height: result.height,
+      publicId: result.public_id,
+      format: result.format,
+    };
+  } catch (error) {
+    console.error("[CLOUDINARY] Upload error:", error);
+    throw error;
   }
-};
+}
 
 // Función para obtener o crear usuario
 const getOrCreateUser = async (clerkUserId) => {
@@ -208,6 +237,7 @@ export async function GET(request) {
         views: gallery.views || 0,
         downloads: gallery.downloads || 0,
         uploadedBy: gallery.uploadedBy?.name || "Admin",
+        cloudinaryId: gallery.cloudinaryId || null,
       }));
 
       return NextResponse.json({
@@ -218,52 +248,33 @@ export async function GET(request) {
     } catch (dbError) {
       console.error("[GALLERY API] Database error:", dbError);
 
-      if (process.env.NODE_ENV === "development") {
-        const sampleItems = [
-          {
-            id: "1",
-            titleAr: "صورة النشاط",
-            titleFr: "Image d'activité",
-            descriptionAr: "وصف النشاط بالعربية",
-            descriptionFr: "Description de l'activité en français",
-            type: "image",
-            category: "activities",
-            status: "published",
-            src: "/images/sample.jpg",
-            url: "/images/sample.jpg",
-            uploadedAt: new Date().toISOString(),
-            size: "2.3 MB",
-            views: 150,
-            downloads: 25,
-            uploadedBy: "Admin",
-          },
-        ];
-        return NextResponse.json({
-          success: true,
-          items: sampleItems,
-          count: sampleItems.length,
-          isSampleData: true,
-        });
-      }
-
+      // En caso de error de base de datos, devolver array vacío
       return NextResponse.json(
-        { success: false, error: "Database error" },
+        {
+          success: false,
+          error: "Database error",
+          items: [],
+          count: 0,
+        },
         { status: 500 },
       );
     }
   } catch (error) {
     console.error("[GALLERY API] Error:", error);
     return NextResponse.json(
-      { success: false, error: "Internal server error" },
+      {
+        success: false,
+        error: "Internal server error",
+        items: [],
+        count: 0,
+      },
       { status: 500 },
     );
   }
 }
 
-// ✅ POST: Subir nuevo elemento con formidable (para archivos grandes)
+// ✅ POST: Subir nuevo elemento a Cloudinary
 export async function POST(request) {
-  let uploadedFiles = [];
-
   try {
     // Verificar autenticación
     const authResult = await verifyAuth(request);
@@ -276,62 +287,20 @@ export async function POST(request) {
 
     console.log(`[GALLERY API] Auth result:`, authResult);
 
-    // Asegurar que los directorios existen
-    await ensureDirectories();
-
-    // Convertir NextRequest a IncomingMessage para formidable
-    const req = new IncomingMessage(request);
-
-    // Crear formulario formidable
-    const form = formidable({
-      uploadDir: IMAGES_DIR, // Directorio temporal, luego moveremos según tipo
-      keepExtensions: true,
-      maxFileSize: 200 * 1024 * 1024, // 200MB máximo
-      maxFiles: 2, // Máximo 2 archivos (archivo principal + thumbnail)
-      allowEmptyFiles: false,
-    });
-
-    // Parsear el formulario
-    const parseForm = () => {
-      return new Promise((resolve, reject) => {
-        form.parse(req, async (err, fields, files) => {
-          if (err) {
-            console.error("[GALLERY API] Form parse error:", err);
-            reject(err);
-          } else {
-            resolve({ fields, files });
-          }
-        });
-      });
-    };
-
-    const { fields, files } = await parseForm();
+    // Obtener formData
+    const formData = await request.formData();
 
     // Extraer campos del formulario
-    const titleAr = Array.isArray(fields.titleAr)
-      ? fields.titleAr[0]
-      : fields.titleAr || "";
-    const titleFr = Array.isArray(fields.titleFr)
-      ? fields.titleFr[0]
-      : fields.titleFr || "";
-    const descriptionAr = Array.isArray(fields.descriptionAr)
-      ? fields.descriptionAr[0]
-      : fields.descriptionAr || "";
-    const descriptionFr = Array.isArray(fields.descriptionFr)
-      ? fields.descriptionFr[0]
-      : fields.descriptionFr || "";
-    const type = Array.isArray(fields.type)
-      ? fields.type[0]
-      : fields.type || "image";
-    const category = Array.isArray(fields.category)
-      ? fields.category[0]
-      : fields.category || "activities";
-    const status = Array.isArray(fields.status)
-      ? fields.status[0]
-      : fields.status || "draft";
-    const videoUrl = Array.isArray(fields.videoUrl)
-      ? fields.videoUrl[0]
-      : fields.videoUrl || "";
+    const titleAr = formData.get("titleAr")?.toString().trim() || "";
+    const titleFr = formData.get("titleFr")?.toString().trim() || "";
+    const descriptionAr =
+      formData.get("descriptionAr")?.toString().trim() || "";
+    const descriptionFr =
+      formData.get("descriptionFr")?.toString().trim() || "";
+    const type = formData.get("type")?.toString() || "image";
+    const category = formData.get("category")?.toString() || "activities";
+    const status = formData.get("status")?.toString() || "draft";
+    const videoUrl = formData.get("videoUrl")?.toString().trim() || "";
 
     // Validar títulos
     if (!titleAr || !titleFr) {
@@ -341,23 +310,20 @@ export async function POST(request) {
       );
     }
 
-    let fileSize = 0;
-    let mimeType = "";
+    let cloudinaryData = {};
     let fileUrl = "";
     let thumbnailUrl = "";
 
-    // Procesar archivo principal (imagen o video)
+    // Procesar archivo principal según tipo
     if (type === "image") {
-      const imageFile = files.image || files.file;
+      const imageFile = formData.get("image") || formData.get("file");
 
-      if (!imageFile) {
+      if (!imageFile || imageFile.size === 0) {
         return NextResponse.json(
           { success: false, error: "Image file is required" },
           { status: 400 },
         );
       }
-
-      const fileInfo = Array.isArray(imageFile) ? imageFile[0] : imageFile;
 
       // Validar tipo
       const allowedImageTypes = [
@@ -366,69 +332,55 @@ export async function POST(request) {
         "image/png",
         "image/gif",
         "image/webp",
+        "image/heic",
+        "image/heif",
       ];
 
-      if (!allowedImageTypes.includes(fileInfo.mimetype || "")) {
-        await unlink(fileInfo.filepath).catch(() => {});
+      if (!allowedImageTypes.includes(imageFile.type)) {
         return NextResponse.json(
           {
             success: false,
-            error: "Invalid image format. Allowed: JPEG, JPG, PNG, GIF, WebP",
+            error:
+              "Invalid image format. Allowed: JPEG, JPG, PNG, GIF, WebP, HEIC",
           },
           { status: 400 },
         );
       }
 
-      // El archivo ya está en IMAGES_DIR, solo necesitamos la URL
-      const fileName = path.basename(fileInfo.filepath);
-      fileUrl = `/uploads/images/${fileName}`;
-      fileSize = fileInfo.size;
-      mimeType = fileInfo.mimetype;
-      uploadedFiles.push(fileInfo.filepath);
+      // Subir a Cloudinary
+      cloudinaryData = await uploadToCloudinary(imageFile, "image");
+      fileUrl = cloudinaryData.url;
     } else if (type === "video") {
-      const videoFile = files.video || files.file;
+      const videoFile = formData.get("video") || formData.get("file");
 
-      if (videoFile) {
-        const fileInfo = Array.isArray(videoFile) ? videoFile[0] : videoFile;
-
+      if (videoFile && videoFile.size > 0) {
         // Validar tipo
         const allowedVideoTypes = [
           "video/mp4",
           "video/webm",
           "video/quicktime",
+          "video/x-msvideo",
+          "video/x-matroska",
         ];
 
-        if (!allowedVideoTypes.includes(fileInfo.mimetype || "")) {
-          await unlink(fileInfo.filepath).catch(() => {});
+        if (!allowedVideoTypes.includes(videoFile.type)) {
           return NextResponse.json(
             {
               success: false,
-              error: "Invalid video format. Allowed: MP4, WebM, MOV",
+              error: "Invalid video format. Allowed: MP4, WebM, MOV, AVI, MKV",
             },
             { status: 400 },
           );
         }
 
-        // Mover archivo a VIDEOS_DIR
-        const videoFileName = path.basename(fileInfo.filepath);
-        const videoNewPath = path.join(VIDEOS_DIR, videoFileName);
+        // Subir video a Cloudinary
+        cloudinaryData = await uploadToCloudinary(videoFile, "video");
+        fileUrl = cloudinaryData.url;
+        thumbnailUrl = cloudinaryData.thumbnail;
 
-        // Renombrar/mover el archivo
-        const { rename } = require("fs/promises");
-        await rename(fileInfo.filepath, videoNewPath);
-
-        fileUrl = `/uploads/videos/${videoFileName}`;
-        fileSize = fileInfo.size;
-        mimeType = fileInfo.mimetype;
-        uploadedFiles.push(videoNewPath);
-
-        // Procesar thumbnail si existe
-        const thumbnailFile = files.thumbnail;
-        if (thumbnailFile) {
-          const thumbInfo = Array.isArray(thumbnailFile)
-            ? thumbnailFile[0]
-            : thumbnailFile;
-
+        // Procesar thumbnail si se subió uno adicional
+        const thumbnailFile = formData.get("thumbnail");
+        if (thumbnailFile && thumbnailFile.size > 0) {
           const allowedThumbnailTypes = [
             "image/jpeg",
             "image/jpg",
@@ -436,22 +388,24 @@ export async function POST(request) {
             "image/webp",
           ];
 
-          if (allowedThumbnailTypes.includes(thumbInfo.mimetype || "")) {
-            const thumbFileName = `thumb-${Date.now()}-${path.basename(thumbInfo.originalFilename || "thumb")}`;
-            const thumbNewPath = path.join(THUMBNAILS_DIR, thumbFileName);
-
-            await rename(thumbInfo.filepath, thumbNewPath);
-            thumbnailUrl = `/uploads/thumbnails/${thumbFileName}`;
-            uploadedFiles.push(thumbNewPath);
-          } else {
-            await unlink(thumbInfo.filepath).catch(() => {});
+          if (allowedThumbnailTypes.includes(thumbnailFile.type)) {
+            const thumbResult = await uploadToCloudinary(
+              thumbnailFile,
+              "image",
+            );
+            thumbnailUrl = thumbResult.url;
           }
         }
       } else if (videoUrl) {
         try {
           new URL(videoUrl);
           fileUrl = videoUrl;
-          mimeType = "video/url";
+          cloudinaryData = {
+            url: videoUrl,
+            size: 0,
+            mimeType: "video/url",
+            publicId: null,
+          };
         } catch {
           return NextResponse.json(
             { success: false, error: "Invalid video URL" },
@@ -478,8 +432,11 @@ export async function POST(request) {
       status,
       src: fileUrl,
       thumbnail: thumbnailUrl || null,
-      size: fileSize || null,
-      mimeType: mimeType || null,
+      size: cloudinaryData.size || null,
+      mimeType: cloudinaryData.mimeType || null,
+      width: cloudinaryData.width || null,
+      height: cloudinaryData.height || null,
+      cloudinaryId: cloudinaryData.publicId || null,
       externalUrl: type === "video" && videoUrl ? videoUrl : null,
       ...(status === "published" && { publishedAt: new Date() }),
     };
@@ -498,7 +455,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      message: "Media uploaded successfully",
+      message: "Media uploaded successfully to Cloudinary",
       item: {
         id: newGallery.id,
         titleAr: newGallery.titleAr,
@@ -512,23 +469,17 @@ export async function POST(request) {
         thumbnail: newGallery.thumbnail,
         url: newGallery.src,
         uploadedAt: newGallery.createdAt,
-        size: fileSize ? `${(fileSize / (1024 * 1024)).toFixed(1)} MB` : "N/A",
+        size: cloudinaryData.size
+          ? `${(cloudinaryData.size / (1024 * 1024)).toFixed(1)} MB`
+          : "N/A",
         views: 0,
         downloads: 0,
         uploadedBy: authResult.user?.name || "Admin",
+        cloudinaryId: cloudinaryData.publicId,
       },
     });
   } catch (error) {
     console.error("[GALLERY API] Error uploading media:", error);
-
-    // Limpiar archivos temporales en caso de error
-    for (const filePath of uploadedFiles) {
-      try {
-        await unlink(filePath);
-      } catch (cleanupError) {
-        console.error("Error cleaning up file:", cleanupError);
-      }
-    }
 
     return NextResponse.json(
       {
@@ -541,4 +492,16 @@ export async function POST(request) {
   } finally {
     await prisma.$disconnect();
   }
+}
+
+// OPTIONS
+export async function OPTIONS() {
+  return NextResponse.json(
+    {
+      success: true,
+      methods: ["GET", "POST", "OPTIONS"],
+      description: "Gallery management API with Cloudinary",
+    },
+    { status: 200 },
+  );
 }

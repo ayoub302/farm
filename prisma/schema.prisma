@@ -337,6 +337,39 @@ model Product {
 
 // ============ MODELO: Gallery ============
 
+// ============ MODELO: GalleryTag ============
+model GalleryTag {
+  id        String   @id @default(cuid())
+  nameAr    String
+  nameFr    String
+  color     String?  @default("#4F46E5")
+  icon      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relación con galleries (muchos a muchos)
+  galleries GalleryTagMap[]
+
+  @@unique([nameAr])
+  @@unique([nameFr])
+  @@map("gallery_tags")
+}
+
+// ============ MODELO: GalleryTagMap (tabla de unión) ============
+model GalleryTagMap {
+  id        String   @id @default(cuid())
+  galleryId String
+  tagId     String
+  createdAt DateTime @default(now())
+
+  gallery Gallery   @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  tag     GalleryTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([galleryId, tagId])
+  @@map("gallery_tag_maps")
+}
+
+// ============ MODELO: Gallery ============
 model Gallery {
   id            String   @id @default(cuid())
   titleAr       String
@@ -357,6 +390,9 @@ model Gallery {
   width         Int?
   height        Int?
   duration      String?  // Duración para videos (formato: "HH:MM:SS")
+  
+  // 🔴 AÑADE ESTA LÍNEA:
+  cloudinaryId  String?  // ID del archivo en Cloudinary para poder eliminarlo
   
   // Metadatos
   uploadedById  String?
@@ -390,38 +426,4 @@ model Gallery {
   @@index([createdAt])
   @@index([publishedAt])
   @@map("galleries")
-}
-
-// ============ MODELO: GalleryTag ============
-
-model GalleryTag {
-  id        String   @id @default(cuid())
-  nameAr    String
-  nameFr    String
-  color     String?  @default("#4F46E5")
-  icon      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relación con galleries (muchos a muchos)
-  galleries GalleryTagMap[]
-
-  @@unique([nameAr])
-  @@unique([nameFr])
-  @@map("gallery_tags")
-}
-
-// ============ MODELO: GalleryTagMap (tabla de unión) ============
-
-model GalleryTagMap {
-  id        String   @id @default(cuid())
-  galleryId String
-  tagId     String
-  createdAt DateTime @default(now())
-
-  gallery Gallery   @relation(fields: [galleryId], references: [id], onDelete: Cascade)
-  tag     GalleryTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@unique([galleryId, tagId])
-  @@map("gallery_tag_maps")
 }

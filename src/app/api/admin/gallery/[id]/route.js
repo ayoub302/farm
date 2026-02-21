@@ -2,9 +2,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { PrismaClient } from "@prisma/client";
-import { unlink } from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
+import { v2 as cloudinary } from "cloudinary";
+
+// Configurar Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const prisma = new PrismaClient();
 
@@ -21,29 +26,58 @@ const verifyAuth = async () => {
   }
 };
 
-const deleteFile = async (filePath) => {
-  if (!filePath) return false;
+// Función para eliminar archivo de Cloudinary
+const deleteFromCloudinary = async (publicId, resourceType = "image") => {
+  if (!publicId) return false;
+
   try {
-    const cleanPath = filePath.startsWith("/") ? filePath : `/${filePath}`;
-    const fullPath = path.join(process.cwd(), "public", cleanPath);
+    console.log(
+      `[CLOUDINARY DELETE] Attempting to delete: ${publicId} (${resourceType})`,
+    );
 
-    console.log(`[FILE DELETE] Attempting to delete: ${fullPath}`);
+    const result = await cloudinary.uploader.destroy(publicId, {
+      resource_type: resourceType,
+    });
 
-    if (existsSync(fullPath)) {
-      await unlink(fullPath);
-      console.log(`[FILE DELETE] Successfully deleted: ${fullPath}`);
-      return true;
-    } else {
-      console.log(`[FILE DELETE] File not found: ${fullPath}`);
-      return false;
-    }
+    console.log(`[CLOUDINARY DELETE] Result:`, result);
+
+    return result.result === "ok";
   } catch (error) {
-    console.error(`[FILE DELETE] Error:`, error);
+    console.error(`[CLOUDINARY DELETE] Error:`, error);
     return false;
   }
 };
 
-// DELETE: Eliminar un elemento específico
+// Función para extraer publicId de una URL de Cloudinary
+const extractPublicIdFromUrl = (url) => {
+  if (!url) return null;
+
+  try {
+    // Las URLs de Cloudinary tienen formato:
+    // https://res.cloudinary.com/cloud_name/type/upload/v1234567/folder/public_id.extension
+    const matches = url.match(/\/v\d+\/(.+)\./);
+    if (matches && matches[1]) {
+      return matches[1];
+    }
+
+    // Intento alternativo
+    const parts = url.split("/");
+    const lastPart = parts[parts.length - 1];
+    const publicIdWithExt = lastPart.split(".")[0];
+    const folder = parts[parts.length - 2];
+
+    if (folder === "upload" || folder === "image" || folder === "video") {
+      return publicIdWithExt;
+    }
+
+    return `${folder}/${publicIdWithExt}`;
+  } catch (error) {
+    console.error("[CLOUDINARY] Error extracting publicId:", error);
+    return null;
+  }
+};
+
+// DELETE: Eliminar un elemento específico (también de Cloudinary)
 export async function DELETE(request, { params }) {
   try {
     const authResult = await verifyAuth();
@@ -54,7 +88,6 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    // ✅ IMPORTANTE: NO convertir a número, mantener como string
     const { id } = await params;
     console.log(
       `[GALLERY DELETE] User ${authResult.userId} deleting item: ${id}`,
@@ -69,7 +102,10 @@ export async function DELETE(request, { params }) {
 
     // Buscar el item en la base de datos
     let galleryItem = null;
-    let fileDeleted = false;
+    let cloudinaryResults = {
+      main: false,
+      thumbnail: false,
+    };
 
     try {
       galleryItem = await prisma.gallery.findUnique({
@@ -77,49 +113,89 @@ export async function DELETE(request, { params }) {
       });
 
       if (galleryItem) {
-        // Eliminar archivos físicos
-        if (galleryItem.src) {
-          const deleted = await deleteFile(galleryItem.src);
-          if (deleted) fileDeleted = true;
+        console.log(`[GALLERY DELETE] Found item:`, {
+          id: galleryItem.id,
+          src: galleryItem.src,
+          thumbnail: galleryItem.thumbnail,
+          cloudinaryId: galleryItem.cloudinaryId,
+        });
+
+        // Determinar el tipo de recurso para Cloudinary
+        const resourceType = galleryItem.type === "video" ? "video" : "image";
+
+        // Opción 1: Si tenemos cloudinaryId guardado en BD
+        if (galleryItem.cloudinaryId) {
+          console.log(
+            `[GALLERY DELETE] Using cloudinaryId: ${galleryItem.cloudinaryId}`,
+          );
+          cloudinaryResults.main = await deleteFromCloudinary(
+            galleryItem.cloudinaryId,
+            resourceType,
+          );
         }
-        if (galleryItem.thumbnail) {
-          await deleteFile(galleryItem.thumbnail);
+        // Opción 2: Extraer publicId de la URL
+        else if (
+          galleryItem.src &&
+          galleryItem.src.includes("cloudinary.com")
+        ) {
+          const publicId = extractPublicIdFromUrl(galleryItem.src);
+          if (publicId) {
+            console.log(
+              `[GALLERY DELETE] Extracted publicId from URL: ${publicId}`,
+            );
+            cloudinaryResults.main = await deleteFromCloudinary(
+              publicId,
+              resourceType,
+            );
+          }
+        }
+
+        // Eliminar thumbnail si existe y es de Cloudinary
+        if (
+          galleryItem.thumbnail &&
+          galleryItem.thumbnail.includes("cloudinary.com")
+        ) {
+          const thumbPublicId = extractPublicIdFromUrl(galleryItem.thumbnail);
+          if (thumbPublicId) {
+            console.log(
+              `[GALLERY DELETE] Deleting thumbnail: ${thumbPublicId}`,
+            );
+            cloudinaryResults.thumbnail = await deleteFromCloudinary(
+              thumbPublicId,
+              "image",
+            );
+          }
         }
 
         // Eliminar de la base de datos
         await prisma.gallery.delete({
           where: { id: id },
         });
+
         console.log(`[GALLERY DELETE] Deleted item ${id} from database`);
+        console.log(`[GALLERY DELETE] Cloudinary results:`, cloudinaryResults);
+      } else {
+        console.log(`[GALLERY DELETE] Item ${id} not found in database`);
       }
     } catch (dbError) {
       console.error("[GALLERY DELETE] Database error:", dbError);
+
       // En desarrollo, continuamos
       if (process.env.NODE_ENV !== "development") {
         throw dbError;
       }
     }
 
-    // SIEMPRE devolver éxito
+    // Devolver éxito
     return NextResponse.json({
       success: true,
       message: "Item deleted successfully",
       id: id,
-      fileDeleted: fileDeleted,
+      cloudinaryDeleted: cloudinaryResults,
+      databaseDeleted: !!galleryItem,
     });
   } catch (error) {
     console.error("[GALLERY DELETE] Error:", error);
-
-    // En desarrollo, devolver éxito simulado
-    if (process.env.NODE_ENV === "development") {
-      const { id } = await params;
-      return NextResponse.json({
-        success: true,
-        message: "Item deleted successfully (demo mode)",
-        id: id,
-        isDemo: true,
-      });
-    }
 
     return NextResponse.json(
       { success: false, error: "Internal server error" },
@@ -144,26 +220,6 @@ export async function GET(request, { params }) {
     const { id } = await params;
     console.log(`[GALLERY GET] Fetching item: ${id}`);
 
-    if (process.env.NODE_ENV === "development") {
-      const sampleItem = {
-        id: id,
-        titleAr: "صورة النشاط",
-        titleFr: "Image d'activité",
-        descriptionAr: "وصف النشاط بالعربية",
-        descriptionFr: "Description de l'activité en français",
-        type: "image",
-        category: "activities",
-        status: "published",
-        src: "/images/sample.jpg",
-        thumbnail: null,
-        uploadedAt: new Date().toISOString(),
-        size: "2.3 MB",
-        views: 150,
-        downloads: 25,
-      };
-      return NextResponse.json({ success: true, item: sampleItem });
-    }
-
     const galleryItem = await prisma.gallery.findUnique({
       where: { id: id },
     });
@@ -175,7 +231,13 @@ export async function GET(request, { params }) {
       );
     }
 
-    return NextResponse.json({ success: true, item: galleryItem });
+    return NextResponse.json({
+      success: true,
+      item: {
+        ...galleryItem,
+        cloudinaryId: galleryItem.cloudinaryId || null,
+      },
+    });
   } catch (error) {
     console.error("[GALLERY GET] Error:", error);
     return NextResponse.json(
@@ -200,15 +262,6 @@ export async function PUT(request, { params }) {
 
     const { id } = await params;
     const body = await request.json();
-
-    if (process.env.NODE_ENV === "development") {
-      return NextResponse.json({
-        success: true,
-        message: "Item updated successfully (demo mode)",
-        item: { id, ...body },
-        isDemo: true,
-      });
-    }
 
     const updatedItem = await prisma.gallery.update({
       where: { id: id },

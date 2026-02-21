@@ -15,9 +15,15 @@ export async function PUT(request, { params }) {
       );
     }
 
-    // ✅ NO convertir a número - mantener como string
+    // Obtener ID de los parámetros
     const { id } = await params;
-    const itemId = id; // Usar directamente como string
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "ID is required" },
+        { status: 400 },
+      );
+    }
 
     const body = await request.json();
     const { status } = body;
@@ -29,17 +35,29 @@ export async function PUT(request, { params }) {
       );
     }
 
+    // Validar status
     const validStatuses = ["draft", "published", "archived"];
     if (!validStatuses.includes(status)) {
       return NextResponse.json(
-        { success: false, error: "Invalid status" },
+        {
+          success: false,
+          error: "Invalid status. Must be: draft, published, archived",
+        },
         { status: 400 },
       );
     }
 
-    // Buscar por ID como string
+    // Buscar el item
     const existingItem = await prisma.gallery.findUnique({
-      where: { id: itemId },
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        publishedAt: true,
+        archivedAt: true,
+        titleAr: true,
+        titleFr: true,
+      },
     });
 
     if (!existingItem) {
@@ -49,15 +67,15 @@ export async function PUT(request, { params }) {
       );
     }
 
+    // Preparar datos de actualización
     const updateData = {
       status,
       updatedAt: new Date(),
     };
 
+    // Manejar fechas según el nuevo status
     if (status === "published") {
-      if (!existingItem.publishedAt) {
-        updateData.publishedAt = new Date();
-      }
+      updateData.publishedAt = existingItem.publishedAt || new Date();
       updateData.archivedAt = null;
     } else if (status === "archived") {
       updateData.archivedAt = new Date();
@@ -67,26 +85,87 @@ export async function PUT(request, { params }) {
       updateData.archivedAt = null;
     }
 
-    // Actualizar usando ID como string
+    // Actualizar
     const updatedGallery = await prisma.gallery.update({
-      where: { id: itemId },
+      where: { id },
       data: updateData,
+      select: {
+        id: true,
+        status: true,
+        publishedAt: true,
+        archivedAt: true,
+        titleAr: true,
+        titleFr: true,
+        updatedAt: true,
+      },
     });
 
     return NextResponse.json({
       success: true,
       message: `Status updated to ${status}`,
-      item: {
-        id: updatedGallery.id,
-        status: updatedGallery.status,
-        publishedAt: updatedGallery.publishedAt,
-        archivedAt: updatedGallery.archivedAt,
-        titleFr: updatedGallery.titleFr,
-        titleAr: updatedGallery.titleAr,
-      },
+      item: updatedGallery,
     });
   } catch (error) {
-    console.error("Error updating status:", error);
+    console.error("[STATUS UPDATE] Error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Internal server error",
+        message: error.message,
+      },
+      { status: 500 },
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+// Opcional: GET para obtener el status actual
+export async function GET(request, { params }) {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 },
+      );
+    }
+
+    const { id } = await params;
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "ID is required" },
+        { status: 400 },
+      );
+    }
+
+    const item = await prisma.gallery.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        publishedAt: true,
+        archivedAt: true,
+        titleAr: true,
+        titleFr: true,
+      },
+    });
+
+    if (!item) {
+      return NextResponse.json(
+        { success: false, error: "Item not found" },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      item,
+    });
+  } catch (error) {
+    console.error("[STATUS GET] Error:", error);
     return NextResponse.json(
       { success: false, error: "Internal server error" },
       { status: 500 },
