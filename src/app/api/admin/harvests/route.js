@@ -1,35 +1,41 @@
 import { NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-// Función para verificar administrador y obtener/cargar usuario
-async function verifyAdminAndGetUser() {
+
+// Helper function to verify admin using your cookie system
+function verifyAdmin(request) {
+  const cookieStore = cookies();
+  const session = cookieStore.get("admin_session");
+
+  // Verificar si la sesión existe y es válida
+  const isAuthenticated = session?.value === "authenticated";
+
+  if (!isAuthenticated) {
+    return { authenticated: false, error: "Not authenticated" };
+  }
+
+  return {
+    authenticated: true,
+    adminEmail: process.env.ADMIN_EMAIL,
+    userId: session?.value || "admin",
+  };
+}
+
+// Función para obtener usuario admin (versión simplificada sin Clerk)
+async function getAdminUser() {
   try {
-    // Obtener usuario actual de Clerk
-    const clerkUser = await currentUser();
+    // En tu sistema, el admin ya está autenticado por la cookie
+    // Aquí puedes buscar o crear un usuario en la base de datos si lo necesitas
 
-    if (!clerkUser) {
-      return { error: "Not authenticated", status: 401 };
+    const adminEmail = process.env.ADMIN_EMAIL;
+
+    if (!adminEmail) {
+      return { error: "Admin email not configured", status: 500 };
     }
 
-    const userEmail = clerkUser.emailAddresses[0]?.emailAddress;
-
-    if (!userEmail) {
-      return { error: "User email not found", status: 400 };
-    }
-
-    // Verificar si es administrador
-    const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-    const isAdminByRole = clerkUser.publicMetadata?.role === "admin";
-    const isAdminByEmail = userEmail === ADMIN_EMAIL;
-    const isAdmin = isAdminByRole || isAdminByEmail;
-
-    if (!isAdmin) {
-      return { error: "Unauthorized - Admin access required", status: 403 };
-    }
-
-    // Buscar usuario en la base de datos por clerkUserId
+    // Buscar usuario en la base de datos por email
     let user = await prisma.user.findUnique({
-      where: { clerkUserId: clerkUser.id },
+      where: { email: adminEmail },
       select: { id: true, email: true, name: true },
     });
 
@@ -37,39 +43,41 @@ async function verifyAdminAndGetUser() {
     if (!user) {
       user = await prisma.user.create({
         data: {
-          email: userEmail,
-          clerkUserId: clerkUser.id,
-          name: clerkUser.firstName || userEmail.split("@")[0],
+          email: adminEmail,
+          clerkUserId: "admin_" + Date.now(), // ID único para el admin
+          name: "Admin",
           clerkData: {
-            id: clerkUser.id,
-            firstName: clerkUser.firstName,
-            lastName: clerkUser.lastName,
-            createdAt: clerkUser.createdAt,
-            updatedAt: clerkUser.updatedAt,
+            id: "admin_" + Date.now(),
+            firstName: "Admin",
+            lastName: "User",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
           },
         },
         select: { id: true, email: true, name: true },
       });
 
-      console.log(`[USER_CREATED] Created user in database: ${userEmail}`);
+      console.log(
+        `[USER_CREATED] Created admin user in database: ${adminEmail}`,
+      );
     }
 
     return { user };
   } catch (error) {
-    console.error("[VERIFY_ADMIN_ERROR]", error);
-    return { error: "Failed to verify admin", status: 500 };
+    console.error("[GET_ADMIN_USER_ERROR]", error);
+    return { error: "Failed to get admin user", status: 500 };
   }
 }
 
 // GET - Obtener cosechas
 export async function GET(request) {
   try {
-    // Verificar administrador y obtener usuario
-    const result = await verifyAdminAndGetUser();
-    if (result.error) {
+    // Verificar administrador
+    const auth = verifyAdmin(request);
+    if (!auth.authenticated) {
       return NextResponse.json(
-        { error: result.error },
-        { status: result.status },
+        { error: auth.error || "Unauthorized" },
+        { status: 401 },
       );
     }
 
@@ -152,12 +160,21 @@ export async function GET(request) {
 // POST - Crear nueva cosecha
 export async function POST(request) {
   try {
-    // Verificar administrador y obtener usuario
-    const result = await verifyAdminAndGetUser();
-    if (result.error) {
+    // Verificar administrador
+    const auth = verifyAdmin(request);
+    if (!auth.authenticated) {
       return NextResponse.json(
-        { error: result.error },
-        { status: result.status },
+        { error: auth.error || "Unauthorized" },
+        { status: 401 },
+      );
+    }
+
+    // Obtener usuario admin para logs
+    const userResult = await getAdminUser();
+    if (userResult.error) {
+      console.warn(
+        "[WARNING] Could not get admin user for logging:",
+        userResult.error,
       );
     }
 
@@ -215,21 +232,27 @@ export async function POST(request) {
       },
     });
 
-    // Registrar en logs
-    await prisma.systemLog.create({
-      data: {
-        action: "harvest_created",
-        module: "harvests",
-        userId: result.user.id,
-        userEmail: result.user.email,
-        details: {
-          harvestId: harvest.id,
-          productAr: harvest.productAr,
-          productFr: harvest.productFr,
-        },
-        severity: "info",
-      },
-    });
+    // Registrar en logs (si tenemos usuario)
+    try {
+      if (userResult.user) {
+        await prisma.systemLog.create({
+          data: {
+            action: "harvest_created",
+            module: "harvests",
+            userId: userResult.user.id,
+            userEmail: userResult.user.email,
+            details: {
+              harvestId: harvest.id,
+              productAr: harvest.productAr,
+              productFr: harvest.productFr,
+            },
+            severity: "info",
+          },
+        });
+      }
+    } catch (logError) {
+      console.warn("[WARNING] Could not create system log:", logError);
+    }
 
     console.log(
       `[HARVEST_CREATED] New harvest created: ${harvest.productFr} (ID: ${harvest.id})`,

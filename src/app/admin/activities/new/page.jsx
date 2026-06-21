@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -24,18 +23,19 @@ import {
 } from "lucide-react";
 
 export default function NewActivityPage() {
-  const { isLoaded, userId } = useAuth();
   const router = useRouter();
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errors, setErrors] = useState({});
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
   // Imágenes reales por categoría - SOLO LAS QUE TIENES EN PUBLIC/
   const categoryImages = {
     visit: "/visita.png",
     workshop: "/martillo.png",
-    harvest: "/cosecha.png", // Cambiado a cosecha.png
+    harvest: "/cosecha.png",
     educational: "/educacion.png",
     family: "/familia.png",
   };
@@ -61,7 +61,7 @@ export default function NewActivityPage() {
     // Additional Info
     requirements: "",
     whatToBring: "",
-    imageUrl: "/visita.png", // Imagen inicial
+    imageUrl: "/visita.png",
     featured: false,
 
     // Recurring options
@@ -106,7 +106,7 @@ export default function NewActivityPage() {
       description: "Fruit and vegetable picking",
       color: "bg-green-100 text-green-800",
       borderColor: "border-green-200",
-      image: "/cosecha.png", // Cambiado a cosecha.png
+      image: "/cosecha.png",
     },
     {
       value: "educational",
@@ -125,6 +125,32 @@ export default function NewActivityPage() {
       image: "/familia.png",
     },
   ];
+
+  // Verificar autenticación con tu sistema de cookies
+  const checkAuth = async () => {
+    try {
+      const response = await fetch("/api/admin/verify");
+      const data = await response.json();
+      setIsAuthenticated(data.authenticated);
+      setAuthChecked(true);
+      
+      if (!data.authenticated) {
+        router.push("/");
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error("[AUTH] Error checking auth:", error);
+      setAuthChecked(true);
+      setIsAuthenticated(false);
+      router.push("/");
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -284,18 +310,19 @@ export default function NewActivityPage() {
     }
   };
 
-  if (!isLoaded) {
+  // Loading state
+  if (!authChecked) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2d5a27] mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600">Verifying authentication...</p>
         </div>
       </div>
     );
   }
 
-  if (!userId) {
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8">
         <div className="text-center max-w-md">
@@ -309,10 +336,10 @@ export default function NewActivityPage() {
             </p>
           </div>
           <Link
-            href="/admin/dashboard"
+            href="/"
             className="inline-block bg-[#2d5a27] text-white px-6 py-3 rounded-lg hover:bg-green-800 transition"
           >
-            Back to Dashboard
+            Back to Home
           </Link>
         </div>
       </div>

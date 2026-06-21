@@ -1,6 +1,26 @@
-import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+
+// Helper function to verify admin using your cookie system
+function verifyAdmin(request) {
+  const cookieStore = cookies();
+  const session = cookieStore.get("admin_session");
+
+  // Verificar si la sesión existe y es válida
+  const isAuthenticated = session?.value === "authenticated";
+
+  if (!isAuthenticated) {
+    return { authenticated: false, error: "Not authenticated" };
+  }
+
+  return {
+    authenticated: true,
+    adminEmail: process.env.ADMIN_EMAIL,
+    userId: session?.value || "admin",
+  };
+}
+
 // Función helper para convertir BigInt a Number
 function convertBigInts(obj) {
   if (typeof obj === "bigint") {
@@ -23,37 +43,15 @@ export async function GET(request) {
   try {
     console.log("[ADMIN STATS] Starting request...");
 
-    // Verificar usuario con Clerk
-    const user = await currentUser();
+    // Verificar autenticación con tu sistema de cookies
+    const auth = verifyAdmin(request);
 
-    if (!user) {
-      console.log("[ADMIN STATS] No user found");
+    if (!auth.authenticated) {
+      console.log("[ADMIN STATS] Not authenticated");
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const userEmail = user.emailAddresses[0]?.emailAddress;
-    console.log(`[ADMIN STATS] User email: ${userEmail}`);
-
-    // Verificar si es admin
-    const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-    const isAdminByRole = user.publicMetadata?.role === "admin";
-    const isAdminByEmail = userEmail === ADMIN_EMAIL;
-    const isAdmin = isAdminByRole || isAdminByEmail;
-
-    if (!isAdmin) {
-      console.log(
-        `[ADMIN STATS] User is not admin. Role: ${user.publicMetadata?.role}, Email: ${userEmail}`,
-      );
-      return NextResponse.json(
-        {
-          error: "Not authorized",
-          details: "Only administrators can access this dashboard",
-        },
-        { status: 403 },
-      );
-    }
-
-    console.log("[ADMIN STATS] Admin verified:", userEmail);
+    console.log("[ADMIN STATS] Admin verified");
 
     // Obtener fecha de hoy para estadísticas
     const today = new Date();
@@ -403,36 +401,49 @@ export async function POST(request) {
   try {
     console.log("[ADMIN STATS] POST request for cache refresh...");
 
-    const user = await currentUser();
-    if (!user) {
+    // Verificar autenticación con tu sistema de cookies
+    const auth = verifyAdmin(request);
+
+    if (!auth.authenticated) {
+      console.log("[ADMIN STATS POST] Not authenticated");
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const userEmail = user.emailAddresses[0]?.emailAddress;
-    const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-    const isAdminByRole = user.publicMetadata?.role === "admin";
-    const isAdminByEmail = userEmail === ADMIN_EMAIL;
-    const isAdmin = isAdminByRole || isAdminByEmail;
+    console.log("[ADMIN STATS POST] Admin verified");
 
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
-    }
-
-    // Registrar la acción
+    // Registrar la acción (usando SystemLog o AdminLog)
     try {
-      await prisma.adminLog.create({
+      // Intentar usar SystemLog primero
+      await prisma.systemLog.create({
         data: {
           action: "refresh_stats",
-          userId: user.id,
-          userEmail: userEmail,
-          details: "Admin manually refreshed dashboard statistics",
-          metadata: {
+          module: "admin",
+          userId: auth.userId,
+          userEmail: auth.adminEmail,
+          details: {
+            action: "Admin manually refreshed dashboard statistics",
             timestamp: new Date().toISOString(),
           },
+          severity: "info",
         },
       });
     } catch (logError) {
-      console.error("[ADMIN STATS] Failed to log refresh:", logError);
+      // Si SystemLog no existe, intentar con AdminLog
+      try {
+        await prisma.adminLog.create({
+          data: {
+            action: "refresh_stats",
+            userId: auth.userId,
+            userEmail: auth.adminEmail,
+            details: "Admin manually refreshed dashboard statistics",
+            metadata: {
+              timestamp: new Date().toISOString(),
+            },
+          },
+        });
+      } catch (adminLogError) {
+        console.error("[ADMIN STATS] Failed to log refresh:", adminLogError);
+      }
     }
 
     return NextResponse.json({

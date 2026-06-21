@@ -1,31 +1,40 @@
 // app/api/admin/calendar/route.js
-import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+
+// Helper function to verify admin using your cookie system
+function verifyAdmin(request) {
+  const cookieStore = cookies();
+  const session = cookieStore.get("admin_session");
+
+  // Verificar si la sesión existe y es válida
+  const isAuthenticated = session?.value === "authenticated";
+
+  if (!isAuthenticated) {
+    return { authenticated: false, error: "Not authenticated" };
+  }
+
+  return {
+    authenticated: true,
+    adminEmail: process.env.ADMIN_EMAIL,
+    userId: session?.value || "admin",
+  };
+}
+
 export async function GET(request) {
   try {
     console.log("[ADMIN CALENDAR API] Starting...");
 
-    // Check user with Clerk
-    const user = await currentUser();
+    // Verificar autenticación con tu sistema de cookies
+    const auth = verifyAdmin(request);
 
-    if (!user) {
-      console.log("[ADMIN CALENDAR API] No user found");
+    if (!auth.authenticated) {
+      console.log("[ADMIN CALENDAR API] Not authenticated");
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const userEmail = user.emailAddresses[0]?.emailAddress;
-
-    // Check if admin
-    const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-    const isAdminByRole = user.publicMetadata?.role === "admin";
-    const isAdminByEmail = userEmail === ADMIN_EMAIL;
-    const isAdmin = isAdminByRole || isAdminByEmail;
-
-    if (!isAdmin) {
-      console.log("[ADMIN CALENDAR API] User is not admin");
-      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
-    }
+    console.log("[ADMIN CALENDAR API] Admin user verified");
 
     // Get date parameters
     const { searchParams } = new URL(request.url);

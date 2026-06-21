@@ -1,25 +1,24 @@
-import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-// Función auxiliar para verificar si el usuario es admin
-async function verifyAdmin() {
-  const user = await currentUser();
 
-  if (!user) {
-    return { isAdmin: false, error: "Not authenticated" };
+// Helper function to verify admin using your cookie system
+function verifyAdmin(request) {
+  const cookieStore = cookies();
+  const session = cookieStore.get("admin_session");
+
+  // Verificar si la sesión existe y es válida
+  const isAuthenticated = session?.value === "authenticated";
+
+  if (!isAuthenticated) {
+    return { authenticated: false, error: "Not authenticated" };
   }
 
-  const userEmail = user.emailAddresses[0]?.emailAddress;
-  const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-  const isAdminByRole = user.publicMetadata?.role === "admin";
-  const isAdminByEmail = userEmail === ADMIN_EMAIL;
-  const isAdmin = isAdminByRole || isAdminByEmail;
-
-  if (!isAdmin) {
-    return { isAdmin: false, error: "Not authorized" };
-  }
-
-  return { isAdmin: true, user };
+  return {
+    authenticated: true,
+    adminEmail: process.env.ADMIN_EMAIL,
+    userId: session?.value || "admin",
+  };
 }
 
 // GET /api/admin/reservations/[id] - Obtener una reservación específica
@@ -30,12 +29,15 @@ export async function GET(request, { params }) {
 
     console.log(`[RESERVATION GET API] Starting for ID: ${id}`);
 
-    const { isAdmin, error } = await verifyAdmin();
+    // Verificar autenticación con tu sistema de cookies
+    const auth = verifyAdmin(request);
 
-    if (!isAdmin) {
-      console.log(`[RESERVATION GET API] Auth error: ${error}`);
-      return NextResponse.json({ error }, { status: 401 });
+    if (!auth.authenticated) {
+      console.log(`[RESERVATION GET API] Auth error: ${auth.error}`);
+      return NextResponse.json({ error: auth.error }, { status: 401 });
     }
+
+    console.log("[RESERVATION GET API] Admin verified");
 
     // Buscar la reservación por ID
     const reservation = await prisma.booking.findUnique({
@@ -104,12 +106,15 @@ export async function PATCH(request, { params }) {
 
     console.log(`[RESERVATION PATCH API] Starting for ID: ${id}`);
 
-    const { isAdmin, error } = await verifyAdmin();
+    // Verificar autenticación con tu sistema de cookies
+    const auth = verifyAdmin(request);
 
-    if (!isAdmin) {
-      console.log(`[RESERVATION PATCH API] Auth error: ${error}`);
-      return NextResponse.json({ error }, { status: 401 });
+    if (!auth.authenticated) {
+      console.log(`[RESERVATION PATCH API] Auth error: ${auth.error}`);
+      return NextResponse.json({ error: auth.error }, { status: 401 });
     }
+
+    console.log("[RESERVATION PATCH API] Admin verified");
 
     const body = await request.json();
 
@@ -223,12 +228,15 @@ export async function DELETE(request, { params }) {
 
     console.log(`[RESERVATION DELETE API] Starting for ID: ${id}`);
 
-    const { isAdmin, error } = await verifyAdmin();
+    // Verificar autenticación con tu sistema de cookies
+    const auth = verifyAdmin(request);
 
-    if (!isAdmin) {
-      console.log(`[RESERVATION DELETE API] Auth error: ${error}`);
-      return NextResponse.json({ error }, { status: 401 });
+    if (!auth.authenticated) {
+      console.log(`[RESERVATION DELETE API] Auth error: ${auth.error}`);
+      return NextResponse.json({ error: auth.error }, { status: 401 });
     }
+
+    console.log("[RESERVATION DELETE API] Admin verified");
 
     // Verificar si existe antes de eliminar
     const reservationExists = await prisma.booking.findUnique({

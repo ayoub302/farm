@@ -1,7 +1,27 @@
 // src/app/api/admin/messages/[id]/route.js
-import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+
+// Helper function to verify admin using your cookie system
+function verifyAdmin(request) {
+  const cookieStore = cookies();
+  const session = cookieStore.get("admin_session");
+
+  // Verificar si la sesión existe y es válida
+  const isAuthenticated = session?.value === "authenticated";
+
+  if (!isAuthenticated) {
+    return { authenticated: false, error: "Not authenticated" };
+  }
+
+  return {
+    authenticated: true,
+    adminEmail: process.env.ADMIN_EMAIL,
+    userId: session?.value || "admin",
+  };
+}
+
 // GET: Get single message by ID
 export async function GET(request, { params }) {
   try {
@@ -9,35 +29,15 @@ export async function GET(request, { params }) {
 
     console.log(`[GET SINGLE MESSAGE] Getting message ${id}`);
 
-    // Verify admin with Clerk
-    const user = await currentUser();
-    if (!user) {
-      console.log("[GET SINGLE MESSAGE] No user found");
+    // Verificar autenticación con tu sistema de cookies
+    const auth = verifyAdmin(request);
+
+    if (!auth.authenticated) {
+      console.log("[GET SINGLE MESSAGE] Not authenticated");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userEmail = user.emailAddresses[0]?.emailAddress;
-    console.log("[GET SINGLE MESSAGE] User email:", userEmail);
-
-    const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-    const isAdminByRole = user.publicMetadata?.role === "admin";
-    const isAdminByEmail = userEmail === ADMIN_EMAIL;
-    const isAdmin = isAdminByRole || isAdminByEmail;
-
-    if (!isAdmin) {
-      console.log("[GET SINGLE MESSAGE] User is not admin");
-      console.log("[GET SINGLE MESSAGE] User role:", user.publicMetadata?.role);
-      console.log("[GET SINGLE MESSAGE] Admin email required:", ADMIN_EMAIL);
-      return NextResponse.json(
-        {
-          error: "Not authorized",
-          details: "Admin access required",
-        },
-        { status: 403 },
-      );
-    }
-
-    console.log("[GET SINGLE MESSAGE] Admin verified:", userEmail);
+    console.log("[GET SINGLE MESSAGE] Admin verified");
 
     // Get message - solo campos que existen
     const message = await prisma.message.findUnique({
@@ -117,25 +117,15 @@ export async function PATCH(request, { params }) {
     console.log(`[UPDATE MESSAGE] Updating message ${id}`);
     console.log(`[UPDATE MESSAGE] Update data:`, body);
 
-    // Verify admin with Clerk
-    const user = await currentUser();
-    if (!user) {
-      console.log("[UPDATE MESSAGE] No user found");
+    // Verificar autenticación con tu sistema de cookies
+    const auth = verifyAdmin(request);
+
+    if (!auth.authenticated) {
+      console.log("[UPDATE MESSAGE] Not authenticated");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userEmail = user.emailAddresses[0]?.emailAddress;
-    console.log("[UPDATE MESSAGE] User email:", userEmail);
-
-    const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-    const isAdminByRole = user.publicMetadata?.role === "admin";
-    const isAdminByEmail = userEmail === ADMIN_EMAIL;
-    const isAdmin = isAdminByRole || isAdminByEmail;
-
-    if (!isAdmin) {
-      console.log("[UPDATE MESSAGE] User is not admin");
-      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
-    }
+    console.log("[UPDATE MESSAGE] Admin verified");
 
     // Verificar si el mensaje existe primero
     const existingMessage = await prisma.message.findUnique({
@@ -176,7 +166,7 @@ export async function PATCH(request, { params }) {
       // Solo actualizamos el status
       if (status === "responded") {
         console.log(
-          `[UPDATE MESSAGE] Message ${id} marked as responded by ${userEmail}`,
+          `[UPDATE MESSAGE] Message ${id} marked as responded by ${auth.adminEmail}`,
         );
       }
     } else {
@@ -223,9 +213,9 @@ export async function PATCH(request, { params }) {
         data: {
           action: "update_message",
           module: "messages",
-          userId: user.id,
-          userEmail: userEmail,
-          details: detailsObj, // details es Json? en el modelo
+          userId: auth.userId,
+          userEmail: auth.adminEmail,
+          details: detailsObj,
           ipAddress: request.headers.get("x-forwarded-for") || "unknown",
           userAgent: request.headers.get("user-agent") || "unknown",
         },
@@ -282,25 +272,15 @@ export async function DELETE(request, { params }) {
 
     console.log(`[DELETE MESSAGE] Deleting message ${id}`);
 
-    // Verify admin with Clerk
-    const user = await currentUser();
-    if (!user) {
-      console.log("[DELETE MESSAGE] No user found");
+    // Verificar autenticación con tu sistema de cookies
+    const auth = verifyAdmin(request);
+
+    if (!auth.authenticated) {
+      console.log("[DELETE MESSAGE] Not authenticated");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userEmail = user.emailAddresses[0]?.emailAddress;
-    console.log("[DELETE MESSAGE] User email:", userEmail);
-
-    const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-    const isAdminByRole = user.publicMetadata?.role === "admin";
-    const isAdminByEmail = userEmail === ADMIN_EMAIL;
-    const isAdmin = isAdminByRole || isAdminByEmail;
-
-    if (!isAdmin) {
-      console.log("[DELETE MESSAGE] User is not admin");
-      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
-    }
+    console.log("[DELETE MESSAGE] Admin verified");
 
     // Verificar si el mensaje existe primero
     const existingMessage = await prisma.message.findUnique({
@@ -340,9 +320,9 @@ export async function DELETE(request, { params }) {
         data: {
           action: "delete_message",
           module: "messages",
-          userId: user.id,
-          userEmail: userEmail,
-          details: detailsObj, // Usamos details en lugar de metadata
+          userId: auth.userId,
+          userEmail: auth.adminEmail,
+          details: detailsObj,
           ipAddress: request.headers.get("x-forwarded-for") || "unknown",
           userAgent: request.headers.get("user-agent") || "unknown",
         },

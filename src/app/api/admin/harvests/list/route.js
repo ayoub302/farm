@@ -1,37 +1,38 @@
 // /api/admin/harvests/list/route.js
 import { NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+
+// Helper function to verify admin using your cookie system
+function verifyAdmin(request) {
+  const cookieStore = cookies();
+  const session = cookieStore.get("admin_session");
+
+  // Verificar si la sesión existe y es válida
+  const isAuthenticated = session?.value === "authenticated";
+
+  if (!isAuthenticated) {
+    return { authenticated: false, error: "Not authenticated" };
+  }
+
+  return {
+    authenticated: true,
+    adminEmail: process.env.ADMIN_EMAIL,
+    userId: session?.value || "admin",
+  };
+}
+
 export async function GET(request) {
   try {
-    // Obtener usuario actual de Clerk
-    const clerkUser = await currentUser();
+    // Verificar autenticación con tu sistema de cookies
+    const auth = verifyAdmin(request);
 
-    if (!clerkUser) {
+    if (!auth.authenticated) {
+      console.log("[LIST_HARVESTS] Not authenticated");
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const userEmail = clerkUser.emailAddresses[0]?.emailAddress;
-
-    if (!userEmail) {
-      return NextResponse.json(
-        { error: "User email not found" },
-        { status: 400 },
-      );
-    }
-
-    // Verificar si es administrador
-    const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-    const isAdminByRole = clerkUser.publicMetadata?.role === "admin";
-    const isAdminByEmail = userEmail === ADMIN_EMAIL;
-    const isAdmin = isAdminByRole || isAdminByEmail;
-
-    if (!isAdmin) {
-      return NextResponse.json(
-        { error: "Unauthorized - Admin access required" },
-        { status: 403 },
-      );
-    }
+    console.log("[LIST_HARVESTS] Admin user verified");
 
     // Obtener parámetros de la URL
     const { searchParams } = new URL(request.url);

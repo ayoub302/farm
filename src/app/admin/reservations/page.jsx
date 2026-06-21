@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -28,7 +27,6 @@ import {
 } from "lucide-react";
 
 export default function ReservationsPage() {
-  const { isLoaded, userId } = useAuth();
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
@@ -39,8 +37,32 @@ export default function ReservationsPage() {
   const [selectedReservation, setSelectedReservation] = useState(null);
   const [updatingIds, setUpdatingIds] = useState(new Set());
   const [apiEndpoint, setApiEndpoint] = useState(
-    "/api/admin/reservations/recent"
+    "/api/admin/reservations/recent",
   );
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Verificar autenticación con tu sistema de cookies
+  const checkAuth = async () => {
+    try {
+      const response = await fetch("/api/admin/verify");
+      const data = await response.json();
+      setIsAuthenticated(data.authenticated);
+      setAuthChecked(true);
+
+      if (!data.authenticated) {
+        router.push("/");
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error("[AUTH] Error checking auth:", error);
+      setAuthChecked(true);
+      setIsAuthenticated(false);
+      router.push("/");
+      return false;
+    }
+  };
 
   // Función para cargar reservaciones
   const loadReservations = async () => {
@@ -207,33 +229,16 @@ export default function ReservationsPage() {
   };
 
   useEffect(() => {
-    const verifyAdminAndLoadReservations = async () => {
-      if (!isLoaded || !userId) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        // Verificar si es admin - esta es la protección importante
-        const verifyResponse = await fetch("/api/admin/verify");
-
-        if (!verifyResponse.ok) {
-          // Si no es admin, redirigir al dashboard
-          router.push("/admin/dashboard");
-          return;
-        }
-
-        // Si es admin, cargar las reservaciones
+    const initPage = async () => {
+      const isAuth = await checkAuth();
+      if (isAuth) {
         await loadReservations();
-      } catch (error) {
-        console.error("[RESERVATIONS PAGE ERROR]", error);
-      } finally {
-        setLoading(false);
       }
+      setLoading(false);
     };
 
-    verifyAdminAndLoadReservations();
-  }, [isLoaded, userId, router]); // loadReservations no está aquí para evitar el error
+    initPage();
+  }, []);
 
   const updateReservationStatus = async (reservationId, newStatus) => {
     if (updatingIds.has(reservationId)) return;
@@ -260,8 +265,8 @@ export default function ReservationsPage() {
                   status: newStatus,
                   updatedAt: new Date().toISOString(),
                 }
-              : res
-          )
+              : res,
+          ),
         );
         if (selectedReservation?.id === reservationId) {
           setSelectedReservation((prev) => ({
@@ -282,8 +287,8 @@ export default function ReservationsPage() {
                   status: newStatus,
                   updatedAt: new Date().toISOString(),
                 }
-              : res
-          )
+              : res,
+          ),
         );
         if (selectedReservation?.id === reservationId) {
           setSelectedReservation((prev) => ({
@@ -301,8 +306,8 @@ export default function ReservationsPage() {
         prev.map((res) =>
           res.id === reservationId
             ? { ...res, status: newStatus, updatedAt: new Date().toISOString() }
-            : res
-        )
+            : res,
+        ),
       );
       if (selectedReservation?.id === reservationId) {
         setSelectedReservation((prev) => ({
@@ -334,7 +339,7 @@ export default function ReservationsPage() {
           (res.activity?.titleFr &&
             res.activity.titleFr.toLowerCase().includes(term)) ||
           (res.activity?.titleAr &&
-            res.activity.titleAr.toLowerCase().includes(term))
+            res.activity.titleAr.toLowerCase().includes(term)),
       );
     }
 
@@ -409,18 +414,23 @@ export default function ReservationsPage() {
     }
   };
 
-  if (!isLoaded || loading) {
+  // Loading state
+  if (!authChecked || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2d5a27] mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading reservations...</p>
+          <p className="mt-4 text-gray-600">
+            {!authChecked
+              ? "Verifying authentication..."
+              : "Loading reservations..."}
+          </p>
         </div>
       </div>
     );
   }
 
-  if (!userId) {
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8">
         <div className="text-center max-w-md">
@@ -433,10 +443,10 @@ export default function ReservationsPage() {
             </p>
           </div>
           <Link
-            href="/admin/dashboard"
+            href="/"
             className="inline-block bg-[#2d5a27] text-white px-6 py-3 rounded-lg hover:bg-green-800 transition"
           >
-            Back to Dashboard
+            Back to Home
           </Link>
         </div>
       </div>
@@ -570,12 +580,12 @@ export default function ReservationsPage() {
                         selectedReservation?.id === reservation.id
                           ? "bg-blue-50 border-blue-500"
                           : reservation.status === "pending"
-                          ? "border-yellow-500"
-                          : reservation.status === "confirmed"
-                          ? "border-green-500"
-                          : reservation.status === "cancelled"
-                          ? "border-red-500"
-                          : "border-gray-300"
+                            ? "border-yellow-500"
+                            : reservation.status === "confirmed"
+                              ? "border-green-500"
+                              : reservation.status === "cancelled"
+                                ? "border-red-500"
+                                : "border-gray-300"
                       }`}
                       onClick={() => setSelectedReservation(reservation)}
                     >
@@ -597,7 +607,7 @@ export default function ReservationsPage() {
                               <span>
                                 {formatDate(
                                   reservation.bookingDate ||
-                                    reservation.createdAt
+                                    reservation.createdAt,
                                 )}
                               </span>
                             </div>
@@ -620,7 +630,7 @@ export default function ReservationsPage() {
                             <div className="flex items-center space-x-2">
                               <span
                                 className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
-                                  reservation.status
+                                  reservation.status,
                                 )}`}
                               >
                                 {getStatusText(reservation.status)}
@@ -669,7 +679,7 @@ export default function ReservationsPage() {
                   <div className="flex items-center space-x-2">
                     <span
                       className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(
-                        selectedReservation.status
+                        selectedReservation.status,
                       )}`}
                     >
                       {getStatusText(selectedReservation.status).toUpperCase()}
@@ -770,7 +780,7 @@ export default function ReservationsPage() {
                     </div>
                   </div>
 
-                  {/* INFORMACIÓN ADICIONAL QUE QUIERES EN INGLÉS */}
+                  {/* INFORMACIÓN ADICIONAL */}
                   <div className="grid grid-cols-1 gap-3 pt-4 border-t">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-700">
@@ -814,7 +824,7 @@ export default function ReservationsPage() {
                           onClick={() =>
                             updateReservationStatus(
                               selectedReservation.id,
-                              "confirmed"
+                              "confirmed",
                             )
                           }
                           disabled={updatingIds.has(selectedReservation.id)}
@@ -832,7 +842,7 @@ export default function ReservationsPage() {
                           onClick={() =>
                             updateReservationStatus(
                               selectedReservation.id,
-                              "cancelled"
+                              "cancelled",
                             )
                           }
                           disabled={updatingIds.has(selectedReservation.id)}

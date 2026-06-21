@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -45,7 +44,6 @@ const STATUS_OPTIONS = [
 ];
 
 export default function MessagesPage() {
-  const { isLoaded, userId, sessionId } = useAuth();
   const router = useRouter();
 
   // State management
@@ -62,6 +60,8 @@ export default function MessagesPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [error, setError] = useState(null);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
   // Sample data for development
   const sampleData = useMemo(
@@ -114,10 +114,32 @@ export default function MessagesPage() {
         updatedAt: new Date(Date.now() - 3600000).toISOString(),
       },
     ],
-    []
+    [],
   );
 
-  // Load messages from API - DEFINIR PRIMERO
+  // Verificar autenticación con tu sistema de cookies
+  const checkAuth = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/verify");
+      const data = await response.json();
+      setIsAuthenticated(data.authenticated);
+      setAuthChecked(true);
+
+      if (!data.authenticated) {
+        router.push("/");
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error("[AUTH] Error checking auth:", error);
+      setAuthChecked(true);
+      setIsAuthenticated(false);
+      router.push("/");
+      return false;
+    }
+  }, [router]);
+
+  // Load messages from API
   const loadMessages = useCallback(
     async (forceEndpoint = null) => {
       try {
@@ -169,7 +191,7 @@ export default function MessagesPage() {
             "[MESSAGES] Success! Loaded",
             loadedData.length,
             "messages from",
-            loadedEndpoint
+            loadedEndpoint,
           );
         } else {
           // Use sample data in development
@@ -179,7 +201,7 @@ export default function MessagesPage() {
             setApiEndpoint("sample_data");
           } else {
             setError(
-              "Unable to load messages. Please check API endpoints and try again."
+              "Unable to load messages. Please check API endpoints and try again.",
             );
           }
         }
@@ -190,41 +212,21 @@ export default function MessagesPage() {
         setLoading(false);
       }
     },
-    [sampleData]
+    [sampleData],
   );
 
-  // Verify admin status and load messages - LUEGO EL useEffect
+  // Initialize page - verificar auth y cargar mensajes
   useEffect(() => {
-    const verifyAdminAndLoadMessages = async () => {
-      if (!isLoaded) {
-        setLoading(false);
-        return;
-      }
-
-      if (!userId) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        // Verify admin status
-        const verifyResponse = await fetch("/api/admin/verify");
-        if (!verifyResponse.ok) {
-          router.push("/admin/dashboard");
-          return;
-        }
-
+    const initPage = async () => {
+      const isAuth = await checkAuth();
+      if (isAuth) {
         await loadMessages();
-      } catch (error) {
-        console.error("[MESSAGES PAGE ERROR]", error);
-        setError("Failed to load messages. Please try again.");
-      } finally {
-        setLoading(false);
       }
+      setLoading(false);
     };
 
-    verifyAdminAndLoadMessages();
-  }, [isLoaded, userId, router, loadMessages]); // Ahora loadMessages está definido antes
+    initPage();
+  }, [checkAuth, loadMessages]);
 
   // Filter messages based on search and status
   useEffect(() => {
@@ -244,7 +246,7 @@ export default function MessagesPage() {
           (msg.email && msg.email.toLowerCase().includes(term)) ||
           (msg.subject && msg.subject.toLowerCase().includes(term)) ||
           (msg.message && msg.message.toLowerCase().includes(term)) ||
-          (msg.phone && msg.phone.includes(term))
+          (msg.phone && msg.phone.includes(term)),
       );
     }
 
@@ -312,8 +314,8 @@ export default function MessagesPage() {
                     status: newStatus,
                     updatedAt: new Date().toISOString(),
                   }
-                : msg
-            )
+                : msg,
+            ),
           );
 
           if (selectedMessage?.id === messageId) {
@@ -343,8 +345,8 @@ export default function MessagesPage() {
                     status: newStatus,
                     updatedAt: new Date().toISOString(),
                   }
-                : msg
-            )
+                : msg,
+            ),
           );
 
           if (selectedMessage?.id === messageId) {
@@ -380,7 +382,7 @@ export default function MessagesPage() {
         });
       }
     },
-    [selectedMessage, updatingIds]
+    [selectedMessage, updatingIds],
   );
 
   // Delete message
@@ -390,7 +392,7 @@ export default function MessagesPage() {
 
       if (
         !window.confirm(
-          "Are you sure you want to delete this message? This action cannot be undone."
+          "Are you sure you want to delete this message? This action cannot be undone.",
         )
       ) {
         return;
@@ -470,14 +472,14 @@ export default function MessagesPage() {
         });
       }
     },
-    [selectedMessage, deletingIds]
+    [selectedMessage, deletingIds],
   );
 
   // Send test message
   const sendTestMessage = useCallback(async () => {
     if (
       !window.confirm(
-        "Send a test message to verify the contact form API is working?"
+        "Send a test message to verify the contact form API is working?",
       )
     ) {
       return;
@@ -491,9 +493,7 @@ export default function MessagesPage() {
         subject: "Test Message from Admin Panel",
         message: `This is a test message sent from the admin panel to verify the API is working.
         
-Timestamp: ${new Date().toISOString()}
-Session: ${sessionId || "N/A"}
-User: ${userId || "N/A"}`,
+Timestamp: ${new Date().toISOString()}`,
         source: "admin_test",
       };
 
@@ -533,7 +533,7 @@ User: ${userId || "N/A"}`,
       });
       window.dispatchEvent(event);
     }
-  }, [loadMessages, userId, sessionId]);
+  }, [loadMessages]);
 
   // Calculate pagination
   const paginatedMessages = useMemo(() => {
@@ -629,14 +629,16 @@ User: ${userId || "N/A"}`,
   }, []);
 
   // Loading state
-  if (!isLoaded || loading) {
+  if (loading || !authChecked) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#2d5a27] border-t-transparent mx-auto"></div>
           <p className="mt-4 text-gray-600 font-medium">Loading messages...</p>
           <p className="text-sm text-gray-500 mt-2">
-            Fetching from {apiEndpoint || "API"}
+            {!authChecked
+              ? "Checking authentication..."
+              : "Fetching messages..."}
           </p>
         </div>
       </div>
@@ -644,7 +646,7 @@ User: ${userId || "N/A"}`,
   }
 
   // Auth check
-  if (!userId) {
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col items-center justify-center p-8">
         <div className="text-center max-w-md">
@@ -658,11 +660,11 @@ User: ${userId || "N/A"}`,
             </p>
           </div>
           <Link
-            href="/admin/dashboard"
+            href="/"
             className="inline-flex items-center gap-2 bg-[#2d5a27] text-white px-6 py-3 rounded-lg hover:bg-green-800 transition shadow hover:shadow-md"
           >
             <ArrowLeft className="w-5 h-5" />
-            Back to Dashboard
+            Back to Home
           </Link>
         </div>
       </div>
@@ -846,8 +848,8 @@ User: ${userId || "N/A"}`,
                             isSelected
                               ? "bg-blue-50 border-blue-500"
                               : message.status === "unread"
-                              ? "border-yellow-500"
-                              : "border-transparent"
+                                ? "border-yellow-500"
+                                : "border-transparent"
                           }`}
                           onClick={() => setSelectedMessage(message)}
                         >
@@ -921,7 +923,7 @@ User: ${userId || "N/A"}`,
                           Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
                           {Math.min(
                             currentPage * itemsPerPage,
-                            filteredMessages.length
+                            filteredMessages.length,
                           )}{" "}
                           of {filteredMessages.length} messages
                         </div>
@@ -942,7 +944,7 @@ User: ${userId || "N/A"}`,
                                 (page) =>
                                   page === 1 ||
                                   page === totalPages ||
-                                  Math.abs(page - currentPage) <= 1
+                                  Math.abs(page - currentPage) <= 1,
                               )
                               .map((page, index, array) => {
                                 const showEllipsis =
@@ -1036,12 +1038,11 @@ User: ${userId || "N/A"}`,
                   </button>
                 </div>
                 <div className="space-y-1">
-                  <div>User ID: {userId}</div>
-                  <div>Session ID: {sessionId}</div>
                   <div>API Endpoint: {apiEndpoint}</div>
                   <div>Messages loaded: {messages.length}</div>
                   <div>Filtered: {filteredMessages.length}</div>
                   <div>Current page: {currentPage}</div>
+                  <div>Authenticated: {isAuthenticated ? "Yes" : "No"}</div>
                 </div>
               </div>
             )}
@@ -1064,12 +1065,12 @@ User: ${userId || "N/A"}`,
                 </div>
 
                 <div className="p-6 space-y-6">
-                  {/* Status Badge - CORREGIDO */}
+                  {/* Status Badge */}
                   <div className="flex justify-between items-center">
                     <div>
                       {(() => {
                         const statusConfig = getStatusConfig(
-                          selectedMessage.status
+                          selectedMessage.status,
                         );
                         const StatusIcon = statusConfig.icon;
                         return (

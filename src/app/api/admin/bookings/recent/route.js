@@ -1,44 +1,42 @@
-import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+
+// Helper function to verify admin using your cookie system
+function verifyAdmin(request) {
+  const cookieStore = cookies();
+  const session = cookieStore.get("admin_session");
+
+  // Verificar si la sesión existe y es válida
+  const isAuthenticated = session?.value === "authenticated";
+
+  if (!isAuthenticated) {
+    return { authenticated: false, error: "Not authenticated" };
+  }
+
+  // Obtener el email del admin de la sesión o de las cookies
+  const adminEmail = process.env.ADMIN_EMAIL;
+
+  return {
+    authenticated: true,
+    adminEmail,
+    userId: session?.value || "admin",
+  };
+}
+
 export async function GET(request) {
   try {
     console.log("[RESERVATIONS RECENT] Starting request...");
 
-    // Obtener usuario actual de Clerk
-    const user = await currentUser();
+    // Verificar autenticación con tu sistema de cookies
+    const auth = verifyAdmin(request);
 
-    if (!user) {
-      console.log("[RESERVATIONS RECENT] No user found");
+    if (!auth.authenticated) {
+      console.log("[RESERVATIONS RECENT] Not authenticated");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userEmail = user.emailAddresses[0]?.emailAddress;
-    console.log("[RESERVATIONS RECENT] User email:", userEmail);
-
-    // Verificar si es admin por EMAIL o rol en Clerk
-    const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-    const isAdminByRole = user.publicMetadata?.role === "admin";
-    const isAdminByEmail = userEmail === ADMIN_EMAIL;
-    const isAdmin = isAdminByRole || isAdminByEmail;
-
-    if (!isAdmin) {
-      console.log(`[RESERVATIONS RECENT] User is not admin.`);
-      console.log(
-        `[RESERVATIONS RECENT] User role:`,
-        user.publicMetadata?.role,
-      );
-      console.log(`[RESERVATIONS RECENT] Admin email required:`, ADMIN_EMAIL);
-      return NextResponse.json(
-        {
-          error: "Not authorized",
-          details: "Only administrators can access this data",
-        },
-        { status: 403 },
-      );
-    }
-
-    console.log("[RESERVATIONS RECENT] Admin user verified:", userEmail);
+    console.log("[RESERVATIONS RECENT] Admin user verified");
 
     // Obtener parámetros de consulta
     const { searchParams } = new URL(request.url);
@@ -161,28 +159,15 @@ export async function POST(request) {
   try {
     console.log("[RESERVATIONS RECENT] POST request...");
 
-    // Verificar autenticación
-    const user = await currentUser();
+    // Verificar autenticación con tu sistema de cookies
+    const auth = verifyAdmin(request);
 
-    if (!user) {
+    if (!auth.authenticated) {
+      console.log("[RESERVATIONS RECENT] Not authenticated");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userEmail = user.emailAddresses[0]?.emailAddress;
-    const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-    const isAdminByRole = user.publicMetadata?.role === "admin";
-    const isAdminByEmail = userEmail === ADMIN_EMAIL;
-    const isAdmin = isAdminByRole || isAdminByEmail;
-
-    if (!isAdmin) {
-      return NextResponse.json(
-        {
-          error: "Not authorized",
-          details: "Only administrators can create test reservations",
-        },
-        { status: 403 },
-      );
-    }
+    console.log("[RESERVATIONS RECENT] Admin user verified");
 
     // Obtener datos del cuerpo
     const body = await request.json();

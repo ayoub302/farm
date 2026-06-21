@@ -1,6 +1,6 @@
 // app/api/admin/activities/route.js
-import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 
 // Helper function to convert BigInt to Number
@@ -21,30 +21,40 @@ function convertBigInts(obj) {
   return obj;
 }
 
+// Helper function to verify admin using your cookie system
+function verifyAdmin(request) {
+  const cookieStore = cookies();
+  const session = cookieStore.get("admin_session");
+
+  // Verificar si la sesión existe y es válida
+  const isAuthenticated = session?.value === "authenticated";
+
+  if (!isAuthenticated) {
+    return { authenticated: false, error: "Not authenticated" };
+  }
+
+  // Obtener el email del admin de la sesión o de las cookies
+  // Si tienes más información en la sesión, puedes extender esto
+  const adminEmail = process.env.ADMIN_EMAIL;
+
+  return {
+    authenticated: true,
+    adminEmail,
+    userId: session?.value || "admin",
+  };
+}
+
 // GET: Get all activities
 export async function GET(request) {
   try {
     console.log("[ACTIVITIES API GET] Starting...");
 
-    // Check user with Clerk
-    const user = await currentUser();
+    // Verificar autenticación con tu sistema de cookies
+    const auth = verifyAdmin(request);
 
-    if (!user) {
-      console.log("[ACTIVITIES API GET] No user found");
+    if (!auth.authenticated) {
+      console.log("[ACTIVITIES API GET] Not authenticated");
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-    }
-
-    const userEmail = user.emailAddresses[0]?.emailAddress;
-
-    // Check if admin
-    const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-    const isAdminByRole = user.publicMetadata?.role === "admin";
-    const isAdminByEmail = userEmail === ADMIN_EMAIL;
-    const isAdmin = isAdminByRole || isAdminByEmail;
-
-    if (!isAdmin) {
-      console.log("[ACTIVITIES API GET] User is not admin");
-      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
     // Get query parameters
@@ -209,25 +219,12 @@ export async function POST(request) {
   try {
     console.log("[ACTIVITIES API POST] Starting...");
 
-    // Check user with Clerk
-    const user = await currentUser();
+    // Verificar autenticación con tu sistema de cookies
+    const auth = verifyAdmin(request);
 
-    if (!user) {
-      console.log("[ACTIVITIES API POST] No user found");
+    if (!auth.authenticated) {
+      console.log("[ACTIVITIES API POST] Not authenticated");
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-    }
-
-    const userEmail = user.emailAddresses[0]?.emailAddress;
-
-    // Check if admin
-    const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-    const isAdminByRole = user.publicMetadata?.role === "admin";
-    const isAdminByEmail = userEmail === ADMIN_EMAIL;
-    const isAdmin = isAdminByRole || isAdminByEmail;
-
-    if (!isAdmin) {
-      console.log("[ACTIVITIES API POST] User is not admin");
-      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
     // Parse activity data
@@ -345,22 +342,27 @@ export async function POST(request) {
       // Don't fail if calendar event can't be created
     }
 
-    // Log the action
-    await prisma.systemLog.create({
-      data: {
-        action: "create_activity",
-        module: "activities",
-        userId: user.id,
-        userEmail: userEmail,
-        details: {
-          activityId: newActivity.id,
-          titleFr: activityData.titleFr,
-          titleAr: activityData.titleAr,
-          date: activityData.date,
+    // Log the action (usando el adminEmail y userId de la sesión)
+    try {
+      await prisma.systemLog.create({
+        data: {
+          action: "create_activity",
+          module: "activities",
+          userId: auth.userId || "admin",
+          userEmail: auth.adminEmail || process.env.ADMIN_EMAIL,
+          details: {
+            activityId: newActivity.id,
+            titleFr: activityData.titleFr,
+            titleAr: activityData.titleAr,
+            date: activityData.date,
+          },
+          severity: "info",
         },
-        severity: "info",
-      },
-    });
+      });
+    } catch (logError) {
+      console.error("[ACTIVITIES API POST] Error creating log:", logError);
+      // Don't fail if log can't be created
+    }
 
     const safeActivity = convertBigInts({
       ...newActivity,
