@@ -57,7 +57,7 @@ export async function GET(request) {
       ];
 
       const isIncorrectPath = incorrectPaths.some(
-        (path) => imageUrl && imageUrl.includes(path)
+        (path) => imageUrl && imageUrl.includes(path),
       );
 
       if (
@@ -125,7 +125,7 @@ export async function GET(request) {
     const formattedActivities = activities.map((activity) => {
       const currentParticipants = activity.bookings.reduce(
         (sum, booking) => sum + (booking.numPeople || 0),
-        0
+        0,
       );
 
       // Extraer horas de date y endDate
@@ -181,7 +181,7 @@ export async function GET(request) {
     console.error("[ACTIVITIES API PUBLIC ERROR]", error);
     return NextResponse.json(
       { error: "Failed to fetch activities" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
