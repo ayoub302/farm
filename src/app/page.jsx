@@ -271,6 +271,9 @@ export default function HomePage() {
 
   return (
     <div className="relative">
+      {/* ✅ ADMIN BUTTON - AHORA SE MUESTRA EN LA PÁGINA */}
+      <AdminButton />
+
       {/* Hero Section */}
       <section className="relative h-[600px] bg-gradient-to-r from-[#2d5a27] to-emerald-800 overflow-hidden">
         <div className="absolute inset-0 bg-black opacity-40"></div>
