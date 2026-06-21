@@ -1,25 +1,26 @@
 // src/app/api/admin/messages/[id]/route.js
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 
-// Helper function to verify admin using your cookie system
+// ✅ CORREGIDO: Helper function SIN usar cookies() de next/headers
 function verifyAdmin(request) {
-  const cookieStore = cookies();
-  const session = cookieStore.get("admin_session");
+  try {
+    const session = request.cookies.get("admin_session");
+    const isAuthenticated = session?.value === "authenticated";
 
-  // Verificar si la sesión existe y es válida
-  const isAuthenticated = session?.value === "authenticated";
+    if (!isAuthenticated) {
+      return { authenticated: false, error: "Not authenticated" };
+    }
 
-  if (!isAuthenticated) {
-    return { authenticated: false, error: "Not authenticated" };
+    return {
+      authenticated: true,
+      adminEmail: process.env.ADMIN_EMAIL,
+      userId: session?.value || "admin",
+    };
+  } catch (error) {
+    console.error("[VERIFY_ADMIN_ERROR]", error);
+    return { authenticated: false, error: "Authentication error" };
   }
-
-  return {
-    authenticated: true,
-    adminEmail: process.env.ADMIN_EMAIL,
-    userId: session?.value || "admin",
-  };
 }
 
 // GET: Get single message by ID
@@ -29,7 +30,7 @@ export async function GET(request, { params }) {
 
     console.log(`[GET SINGLE MESSAGE] Getting message ${id}`);
 
-    // Verificar autenticación con tu sistema de cookies
+    // ✅ Verificar autenticación (sin await porque verifyAdmin no es async)
     const auth = verifyAdmin(request);
 
     if (!auth.authenticated) {
@@ -39,7 +40,6 @@ export async function GET(request, { params }) {
 
     console.log("[GET SINGLE MESSAGE] Admin verified");
 
-    // Get message - solo campos que existen
     const message = await prisma.message.findUnique({
       where: { id },
       select: {
@@ -75,7 +75,6 @@ export async function GET(request, { params }) {
   } catch (error) {
     console.error("[GET SINGLE MESSAGE ERROR]", error);
 
-    // Manejar errores específicos de Prisma
     if (error.name === "PrismaClientValidationError") {
       return NextResponse.json(
         {
@@ -112,12 +111,12 @@ export async function PATCH(request, { params }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status } = body; // Solo status es válido
+    const { status } = body;
 
     console.log(`[UPDATE MESSAGE] Updating message ${id}`);
     console.log(`[UPDATE MESSAGE] Update data:`, body);
 
-    // Verificar autenticación con tu sistema de cookies
+    // ✅ Verificar autenticación (sin await)
     const auth = verifyAdmin(request);
 
     if (!auth.authenticated) {
@@ -127,7 +126,6 @@ export async function PATCH(request, { params }) {
 
     console.log("[UPDATE MESSAGE] Admin verified");
 
-    // Verificar si el mensaje existe primero
     const existingMessage = await prisma.message.findUnique({
       where: { id },
     });
@@ -143,12 +141,10 @@ export async function PATCH(request, { params }) {
       );
     }
 
-    // Preparar datos de actualización
     const updateData = {
       updatedAt: new Date(),
     };
 
-    // Validar y agregar status si está presente
     if (status) {
       const validStatuses = ["unread", "read", "responded", "archived"];
       if (!validStatuses.includes(status)) {
@@ -163,14 +159,12 @@ export async function PATCH(request, { params }) {
       }
       updateData.status = status;
 
-      // Solo actualizamos el status
       if (status === "responded") {
         console.log(
           `[UPDATE MESSAGE] Message ${id} marked as responded by ${auth.adminEmail}`,
         );
       }
     } else {
-      // Si no se proporciona status, no hacer nada
       return NextResponse.json(
         {
           error: "No status provided",
@@ -180,7 +174,6 @@ export async function PATCH(request, { params }) {
       );
     }
 
-    // Update message - SOLO campos que existen en el modelo
     const updatedMessage = await prisma.message.update({
       where: { id },
       data: updateData,
@@ -200,7 +193,6 @@ export async function PATCH(request, { params }) {
 
     console.log(`[UPDATE MESSAGE] Successfully updated message ${id}`);
 
-    // Registrar la acción en logs usando SystemLog
     try {
       const detailsObj = {
         messageId: id,
@@ -222,7 +214,6 @@ export async function PATCH(request, { params }) {
       });
     } catch (logError) {
       console.error("[UPDATE MESSAGE] Failed to log action:", logError);
-      // No fallamos si el log falla
     }
 
     return NextResponse.json({
@@ -233,7 +224,6 @@ export async function PATCH(request, { params }) {
   } catch (error) {
     console.error("[UPDATE MESSAGE ERROR]", error);
 
-    // Handle message not found
     if (error.code === "P2025") {
       return NextResponse.json(
         {
@@ -272,7 +262,7 @@ export async function DELETE(request, { params }) {
 
     console.log(`[DELETE MESSAGE] Deleting message ${id}`);
 
-    // Verificar autenticación con tu sistema de cookies
+    // ✅ Verificar autenticación (sin await)
     const auth = verifyAdmin(request);
 
     if (!auth.authenticated) {
@@ -282,7 +272,6 @@ export async function DELETE(request, { params }) {
 
     console.log("[DELETE MESSAGE] Admin verified");
 
-    // Verificar si el mensaje existe primero
     const existingMessage = await prisma.message.findUnique({
       where: { id },
       select: {
@@ -305,7 +294,6 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    // Primero guardar en logs antes de eliminar
     try {
       const detailsObj = {
         messageId: id,
@@ -329,10 +317,8 @@ export async function DELETE(request, { params }) {
       });
     } catch (logError) {
       console.error("[DELETE MESSAGE] Failed to log deletion:", logError);
-      // Continuamos con la eliminación incluso si el log falla
     }
 
-    // Eliminar el mensaje
     await prisma.message.delete({
       where: { id },
     });
@@ -352,7 +338,6 @@ export async function DELETE(request, { params }) {
   } catch (error) {
     console.error("[DELETE MESSAGE ERROR]", error);
 
-    // Handle message not found
     if (error.code === "P2025") {
       return NextResponse.json(
         {
@@ -384,7 +369,7 @@ export async function DELETE(request, { params }) {
   }
 }
 
-// POST: Add notes or reply to message (opcional - deshabilitado porque el modelo no tiene los campos)
+// POST: Add notes or reply to message
 export async function POST(request, { params }) {
   try {
     const { id } = await params;
@@ -400,7 +385,7 @@ export async function POST(request, { params }) {
         note: "The Message model does not have fields for notes or replies. Update the model to enable this feature.",
       },
       { status: 501 },
-    ); // 501 Not Implemented
+    );
   } catch (error) {
     console.error("[POST MESSAGE ERROR]", error);
     return NextResponse.json(

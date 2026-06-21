@@ -1,24 +1,25 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 
-// Helper function to verify admin using your cookie system
+// ✅ CORREGIDO: Helper function SIN usar cookies() de next/headers
 function verifyAdmin(request) {
-  const cookieStore = cookies();
-  const session = cookieStore.get("admin_session");
+  try {
+    const session = request.cookies.get("admin_session");
+    const isAuthenticated = session?.value === "authenticated";
 
-  // Verificar si la sesión existe y es válida
-  const isAuthenticated = session?.value === "authenticated";
+    if (!isAuthenticated) {
+      return { authenticated: false, error: "Not authenticated" };
+    }
 
-  if (!isAuthenticated) {
-    return { authenticated: false, error: "Not authenticated" };
+    return {
+      authenticated: true,
+      adminEmail: process.env.ADMIN_EMAIL,
+      userId: session?.value || "admin",
+    };
+  } catch (error) {
+    console.error("[VERIFY_ADMIN_ERROR]", error);
+    return { authenticated: false, error: "Authentication error" };
   }
-
-  return {
-    authenticated: true,
-    adminEmail: process.env.ADMIN_EMAIL,
-    userId: session?.value || "admin",
-  };
 }
 
 // GET /api/admin/reservations/[id] - Obtener una reservación específica
@@ -29,7 +30,7 @@ export async function GET(request, { params }) {
 
     console.log(`[RESERVATION GET API] Starting for ID: ${id}`);
 
-    // Verificar autenticación con tu sistema de cookies
+    // ✅ Verificar autenticación (sin await)
     const auth = verifyAdmin(request);
 
     if (!auth.authenticated) {
@@ -106,7 +107,7 @@ export async function PATCH(request, { params }) {
 
     console.log(`[RESERVATION PATCH API] Starting for ID: ${id}`);
 
-    // Verificar autenticación con tu sistema de cookies
+    // ✅ Verificar autenticación (sin await)
     const auth = verifyAdmin(request);
 
     if (!auth.authenticated) {
@@ -228,7 +229,7 @@ export async function DELETE(request, { params }) {
 
     console.log(`[RESERVATION DELETE API] Starting for ID: ${id}`);
 
-    // Verificar autenticación con tu sistema de cookies
+    // ✅ Verificar autenticación (sin await)
     const auth = verifyAdmin(request);
 
     if (!auth.authenticated) {

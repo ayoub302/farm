@@ -2,23 +2,28 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 
-// Helper function to verify admin using your cookie system
-function verifyAdmin(request) {
-  const cookieStore = cookies();
-  const session = cookieStore.get("admin_session");
+// ✅ CORREGIDO: Helper function asíncrona para verificar admin
+async function verifyAdmin(request) {
+  try {
+    const cookieStore = await cookies(); // 👈 Añadir await
+    const session = cookieStore.get("admin_session");
 
-  // Verificar si la sesión existe y es válida
-  const isAuthenticated = session?.value === "authenticated";
+    // Verificar si la sesión existe y es válida
+    const isAuthenticated = session?.value === "authenticated";
 
-  if (!isAuthenticated) {
-    return { authenticated: false, error: "Not authenticated" };
+    if (!isAuthenticated) {
+      return { authenticated: false, error: "Not authenticated" };
+    }
+
+    return {
+      authenticated: true,
+      adminEmail: process.env.ADMIN_EMAIL,
+      userId: session?.value || "admin",
+    };
+  } catch (error) {
+    console.error("[VERIFY_ADMIN_ERROR]", error);
+    return { authenticated: false, error: "Authentication error" };
   }
-
-  return {
-    authenticated: true,
-    adminEmail: process.env.ADMIN_EMAIL,
-    userId: session?.value || "admin",
-  };
 }
 
 // Función para obtener usuario admin (versión simplificada sin Clerk)
@@ -72,8 +77,8 @@ async function getAdminUser() {
 // GET - Obtener cosechas
 export async function GET(request) {
   try {
-    // Verificar administrador
-    const auth = verifyAdmin(request);
+    // ✅ Verificar administrador con await
+    const auth = await verifyAdmin(request);
     if (!auth.authenticated) {
       return NextResponse.json(
         { error: auth.error || "Unauthorized" },
@@ -160,8 +165,8 @@ export async function GET(request) {
 // POST - Crear nueva cosecha
 export async function POST(request) {
   try {
-    // Verificar administrador
-    const auth = verifyAdmin(request);
+    // ✅ Verificar administrador con await
+    const auth = await verifyAdmin(request);
     if (!auth.authenticated) {
       return NextResponse.json(
         { error: auth.error || "Unauthorized" },

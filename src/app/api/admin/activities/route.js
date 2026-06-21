@@ -21,27 +21,31 @@ function convertBigInts(obj) {
   return obj;
 }
 
-// Helper function to verify admin using your cookie system
-function verifyAdmin(request) {
-  const cookieStore = cookies();
-  const session = cookieStore.get("admin_session");
+// ✅ CORREGIDO: Helper function asíncrona para verificar admin
+async function verifyAdmin(request) {
+  try {
+    const cookieStore = await cookies(); // 👈 Añadir await
+    const session = cookieStore.get("admin_session");
 
-  // Verificar si la sesión existe y es válida
-  const isAuthenticated = session?.value === "authenticated";
+    // Verificar si la sesión existe y es válida
+    const isAuthenticated = session?.value === "authenticated";
 
-  if (!isAuthenticated) {
-    return { authenticated: false, error: "Not authenticated" };
+    if (!isAuthenticated) {
+      return { authenticated: false, error: "Not authenticated" };
+    }
+
+    // Obtener el email del admin de la sesión o de las cookies
+    const adminEmail = process.env.ADMIN_EMAIL;
+
+    return {
+      authenticated: true,
+      adminEmail,
+      userId: session?.value || "admin",
+    };
+  } catch (error) {
+    console.error("[VERIFY_ADMIN_ERROR]", error);
+    return { authenticated: false, error: "Authentication error" };
   }
-
-  // Obtener el email del admin de la sesión o de las cookies
-  // Si tienes más información en la sesión, puedes extender esto
-  const adminEmail = process.env.ADMIN_EMAIL;
-
-  return {
-    authenticated: true,
-    adminEmail,
-    userId: session?.value || "admin",
-  };
 }
 
 // GET: Get all activities
@@ -49,8 +53,8 @@ export async function GET(request) {
   try {
     console.log("[ACTIVITIES API GET] Starting...");
 
-    // Verificar autenticación con tu sistema de cookies
-    const auth = verifyAdmin(request);
+    // ✅ Verificar autenticación con await
+    const auth = await verifyAdmin(request);
 
     if (!auth.authenticated) {
       console.log("[ACTIVITIES API GET] Not authenticated");
@@ -219,8 +223,8 @@ export async function POST(request) {
   try {
     console.log("[ACTIVITIES API POST] Starting...");
 
-    // Verificar autenticación con tu sistema de cookies
-    const auth = verifyAdmin(request);
+    // ✅ Verificar autenticación con await
+    const auth = await verifyAdmin(request);
 
     if (!auth.authenticated) {
       console.log("[ACTIVITIES API POST] Not authenticated");
@@ -342,7 +346,7 @@ export async function POST(request) {
       // Don't fail if calendar event can't be created
     }
 
-    // Log the action (usando el adminEmail y userId de la sesión)
+    // Log the action
     try {
       await prisma.systemLog.create({
         data: {

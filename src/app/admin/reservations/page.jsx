@@ -654,15 +654,6 @@ export default function ReservationsPage() {
                         ? "Reservations will appear here when users book activities"
                         : "Try changing your search or filter criteria"}
                     </p>
-                    <div className="mt-4">
-                      <Link
-                        href="/reservation"
-                        target="_blank"
-                        className="inline-block px-6 py-2 bg-[#2d5a27] text-white rounded-lg hover:bg-green-800 transition"
-                      >
-                        Test Reservation Form
-                      </Link>
-                    </div>
                   </div>
                 )}
               </div>
@@ -875,17 +866,7 @@ export default function ReservationsPage() {
                 <p className="text-gray-500 text-sm">
                   Click on a reservation from the list to view its details
                 </p>
-                {reservations.length === 0 && (
-                  <div className="mt-4">
-                    <Link
-                      href="/reservation"
-                      target="_blank"
-                      className="inline-block px-6 py-2 bg-[#2d5a27] text-white rounded-lg hover:bg-green-800 transition"
-                    >
-                      Test Reservation Form
-                    </Link>
-                  </div>
-                )}
+               
               </div>
             )}
           </div>

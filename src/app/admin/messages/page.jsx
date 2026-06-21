@@ -15,27 +15,15 @@ import {
   Clock,
   Trash2,
   Archive,
-  Reply,
   Filter,
   CheckCircle,
   XCircle,
   AlertCircle,
-  Send,
-  ExternalLink,
   MessageSquare,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 
-// API endpoints to try in order
-const API_ENDPOINTS = [
-  "/api/admin/messages/recent",
-  "/api/contact?admin=true",
-  "/api/messages",
-  "/api/admin/contact",
-];
-
-// Status options for filtering
 const STATUS_OPTIONS = [
   { value: "all", label: "All Messages", color: "gray" },
   { value: "unread", label: "Unread", color: "yellow" },
@@ -46,7 +34,6 @@ const STATUS_OPTIONS = [
 export default function MessagesPage() {
   const router = useRouter();
 
-  // State management
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState([]);
   const [filteredMessages, setFilteredMessages] = useState([]);
@@ -55,69 +42,12 @@ export default function MessagesPage() {
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [deletingIds, setDeletingIds] = useState(new Set());
   const [updatingIds, setUpdatingIds] = useState(new Set());
-  const [apiEndpoint, setApiEndpoint] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [error, setError] = useState(null);
-  const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
 
-  // Sample data for development
-  const sampleData = useMemo(
-    () => [
-      {
-        id: "1",
-        name: "John Doe",
-        email: "john@example.com",
-        phone: "+212 612345678",
-        subject: "Sample Message 1",
-        message: "This is a sample message for testing purposes.",
-        status: "unread",
-        source: "contact_form",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        id: "2",
-        name: "Jane Smith",
-        email: "jane@example.com",
-        phone: "+212 698765432",
-        subject: "Sample Message 2",
-        message: "Another sample message for testing the admin panel.",
-        status: "read",
-        source: "contact_form",
-        createdAt: new Date(Date.now() - 86400000).toISOString(),
-        updatedAt: new Date(Date.now() - 86400000).toISOString(),
-      },
-      {
-        id: "3",
-        name: "Robert Johnson",
-        email: "robert@example.com",
-        phone: "+212 633344455",
-        subject: "Question about activities",
-        message: "I would like to know more about your farm activities.",
-        source: "contact_form",
-        createdAt: new Date(Date.now() - 172800000).toISOString(),
-        updatedAt: new Date(Date.now() - 86400000).toISOString(),
-      },
-      {
-        id: "4",
-        name: "Maria Garcia",
-        email: "maria@example.com",
-        phone: "+212 655566677",
-        subject: "Booking inquiry",
-        message: "I'm interested in booking a farm visit next week.",
-        status: "unread",
-        source: "contact_form",
-        createdAt: new Date(Date.now() - 3600000).toISOString(),
-        updatedAt: new Date(Date.now() - 3600000).toISOString(),
-      },
-    ],
-    [],
-  );
-
-  // Verificar autenticación con tu sistema de cookies
   const checkAuth = useCallback(async () => {
     try {
       const response = await fetch("/api/admin/verify");
@@ -139,96 +69,46 @@ export default function MessagesPage() {
     }
   }, [router]);
 
-  // Load messages from API
-  const loadMessages = useCallback(
-    async (forceEndpoint = null) => {
-      try {
-        setLoading(true);
-        setError(null);
-        console.log("[MESSAGES] Loading messages...");
+  const loadMessages = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const endpoints = forceEndpoint ? [forceEndpoint] : API_ENDPOINTS;
-        let success = false;
-        let loadedEndpoint = "";
-        let loadedData = [];
+      const response = await fetch("/api/admin/messages/recent");
 
-        for (const endpoint of endpoints) {
-          try {
-            console.log("[MESSAGES] Trying endpoint:", endpoint);
-            const response = await fetch(endpoint);
-            console.log("[MESSAGES] Response status:", response.status);
-
-            if (response.ok) {
-              const data = await response.json();
-              console.log("[MESSAGES] Data received:", data);
-
-              // Handle different response formats
-              if (Array.isArray(data)) {
-                loadedData = data;
-              } else if (data.messages && Array.isArray(data.messages)) {
-                loadedData = data.messages;
-              } else if (data.data && Array.isArray(data.data)) {
-                loadedData = data.data;
-              } else {
-                console.warn("[MESSAGES] Unexpected data format:", data);
-                continue;
-              }
-
-              loadedEndpoint = endpoint;
-              success = true;
-              break;
-            }
-          } catch (err) {
-            console.warn("[MESSAGES] Failed with endpoint:", endpoint, err);
-            continue;
-          }
-        }
-
-        if (success) {
-          setMessages(loadedData);
-          setApiEndpoint(loadedEndpoint);
-          console.log(
-            "[MESSAGES] Success! Loaded",
-            loadedData.length,
-            "messages from",
-            loadedEndpoint,
-          );
-        } else {
-          // Use sample data in development
-          if (process.env.NODE_ENV === "development") {
-            console.log("[MESSAGES] Using sample data for development");
-            setMessages(sampleData);
-            setApiEndpoint("sample_data");
-          } else {
-            setError(
-              "Unable to load messages. Please check API endpoints and try again.",
-            );
-          }
-        }
-      } catch (error) {
-        console.error("[MESSAGES] Load error:", error);
-        setError("An error occurred while loading messages.");
-      } finally {
-        setLoading(false);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
       }
-    },
-    [sampleData],
-  );
 
-  // Initialize page - verificar auth y cargar mensajes
+      const data = await response.json();
+
+      if (Array.isArray(data)) {
+        setMessages(data);
+      } else if (data.messages && Array.isArray(data.messages)) {
+        setMessages(data.messages);
+      } else {
+        setMessages([]);
+      }
+    } catch (error) {
+      console.error("[MESSAGES] Load error:", error);
+      setError("Unable to load messages. Please try again.");
+      setMessages([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const initPage = async () => {
       const isAuth = await checkAuth();
       if (isAuth) {
         await loadMessages();
       }
-      setLoading(false);
     };
 
     initPage();
   }, [checkAuth, loadMessages]);
 
-  // Filter messages based on search and status
   useEffect(() => {
     if (!Array.isArray(messages) || messages.length === 0) {
       setFilteredMessages([]);
@@ -237,7 +117,6 @@ export default function MessagesPage() {
 
     let filtered = [...messages];
 
-    // Apply search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
@@ -250,12 +129,10 @@ export default function MessagesPage() {
       );
     }
 
-    // Apply status filter
     if (statusFilter !== "all") {
       filtered = filtered.filter((msg) => msg.status === statusFilter);
     }
 
-    // Sort by date (newest first)
     filtered.sort((a, b) => {
       const dateA = new Date(a.createdAt || a.updatedAt || 0);
       const dateB = new Date(b.createdAt || b.updatedAt || 0);
@@ -263,10 +140,9 @@ export default function MessagesPage() {
     });
 
     setFilteredMessages(filtered);
-    setCurrentPage(1); // Reset to first page when filters change
+    setCurrentPage(1);
   }, [searchTerm, statusFilter, messages]);
 
-  // Update message status
   const updateMessageStatus = useCallback(
     async (messageId, newStatus) => {
       if (updatingIds.has(messageId)) return;
@@ -274,38 +150,15 @@ export default function MessagesPage() {
       setUpdatingIds((prev) => new Set([...prev, messageId]));
 
       try {
-        // Try different endpoints for updating
-        const endpoints = [
-          `/api/contact/${messageId}`,
-          `/api/messages/${messageId}`,
-          `/api/admin/messages/${messageId}`,
-        ];
+        const response = await fetch(`/api/admin/messages/${messageId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: newStatus }),
+        });
 
-        let success = false;
-        for (const endpoint of endpoints) {
-          try {
-            const response = await fetch(endpoint, {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ status: newStatus }),
-            });
-
-            if (response.ok) {
-              success = true;
-              const data = await response.json();
-              console.log("[MESSAGES] Status updated:", data);
-              break;
-            }
-          } catch (err) {
-            console.warn("[MESSAGES] Update failed with endpoint:", endpoint);
-            continue;
-          }
-        }
-
-        if (success) {
-          // Update local state
+        if (response.ok) {
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === messageId
@@ -325,55 +178,12 @@ export default function MessagesPage() {
               updatedAt: new Date().toISOString(),
             }));
           }
-
-          // Show success message
-          const event = new CustomEvent("show-toast", {
-            detail: {
-              message: "Status updated successfully",
-              type: "success",
-            },
-          });
-          window.dispatchEvent(event);
         } else {
-          // Update locally if API fails
-          console.warn("[MESSAGES] Updating status locally");
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === messageId
-                ? {
-                    ...msg,
-                    status: newStatus,
-                    updatedAt: new Date().toISOString(),
-                  }
-                : msg,
-            ),
-          );
-
-          if (selectedMessage?.id === messageId) {
-            setSelectedMessage((prev) => ({
-              ...prev,
-              status: newStatus,
-              updatedAt: new Date().toISOString(),
-            }));
-          }
-
-          const event = new CustomEvent("show-toast", {
-            detail: {
-              message: "Status updated locally (API unavailable)",
-              type: "warning",
-            },
-          });
-          window.dispatchEvent(event);
+          throw new Error(`HTTP ${response.status}`);
         }
       } catch (error) {
         console.error("[MESSAGES] Update error:", error);
-        const event = new CustomEvent("show-toast", {
-          detail: {
-            message: "Failed to update status",
-            type: "error",
-          },
-        });
-        window.dispatchEvent(event);
+        alert("Failed to update message status. Please try again.");
       } finally {
         setUpdatingIds((prev) => {
           const next = new Set(prev);
@@ -385,7 +195,6 @@ export default function MessagesPage() {
     [selectedMessage, updatingIds],
   );
 
-  // Delete message
   const deleteMessage = useCallback(
     async (messageId) => {
       if (deletingIds.has(messageId)) return;
@@ -401,69 +210,21 @@ export default function MessagesPage() {
       setDeletingIds((prev) => new Set([...prev, messageId]));
 
       try {
-        // Try different endpoints for deletion
-        const endpoints = [
-          `/api/contact/${messageId}`,
-          `/api/messages/${messageId}`,
-          `/api/admin/messages/${messageId}`,
-        ];
+        const response = await fetch(`/api/admin/messages/${messageId}`, {
+          method: "DELETE",
+        });
 
-        let success = false;
-        for (const endpoint of endpoints) {
-          try {
-            const response = await fetch(endpoint, {
-              method: "DELETE",
-            });
-
-            if (response.ok) {
-              success = true;
-              break;
-            }
-          } catch (err) {
-            console.warn("[MESSAGES] Delete failed with endpoint:", endpoint);
-            continue;
-          }
-        }
-
-        if (success) {
-          // Remove from local state
+        if (response.ok) {
           setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
           if (selectedMessage?.id === messageId) {
             setSelectedMessage(null);
           }
-
-          const event = new CustomEvent("show-toast", {
-            detail: {
-              message: "Message deleted successfully",
-              type: "success",
-            },
-          });
-          window.dispatchEvent(event);
         } else {
-          // Delete locally if API fails
-          console.warn("[MESSAGES] Deleting locally");
-          setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
-          if (selectedMessage?.id === messageId) {
-            setSelectedMessage(null);
-          }
-
-          const event = new CustomEvent("show-toast", {
-            detail: {
-              message: "Message deleted locally (API unavailable)",
-              type: "warning",
-            },
-          });
-          window.dispatchEvent(event);
+          throw new Error(`HTTP ${response.status}`);
         }
       } catch (error) {
         console.error("[MESSAGES] Delete error:", error);
-        const event = new CustomEvent("show-toast", {
-          detail: {
-            message: "Failed to delete message",
-            type: "error",
-          },
-        });
-        window.dispatchEvent(event);
+        alert("Failed to delete message. Please try again.");
       } finally {
         setDeletingIds((prev) => {
           const next = new Set(prev);
@@ -475,67 +236,6 @@ export default function MessagesPage() {
     [selectedMessage, deletingIds],
   );
 
-  // Send test message
-  const sendTestMessage = useCallback(async () => {
-    if (
-      !window.confirm(
-        "Send a test message to verify the contact form API is working?",
-      )
-    ) {
-      return;
-    }
-
-    try {
-      const testMessage = {
-        name: "Test Admin User",
-        email: "admin@test.com",
-        phone: "+212 612345678",
-        subject: "Test Message from Admin Panel",
-        message: `This is a test message sent from the admin panel to verify the API is working.
-        
-Timestamp: ${new Date().toISOString()}`,
-        source: "admin_test",
-      };
-
-      const response = await fetch("/api/contact", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(testMessage),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        const event = new CustomEvent("show-toast", {
-          detail: {
-            message: "Test message sent successfully!",
-            type: "success",
-          },
-        });
-        window.dispatchEvent(event);
-
-        // Reload messages after a short delay
-        setTimeout(() => {
-          loadMessages();
-        }, 1000);
-      } else {
-        throw new Error(data.error || `HTTP ${response.status}`);
-      }
-    } catch (error) {
-      console.error("[MESSAGES] Test send error:", error);
-      const event = new CustomEvent("show-toast", {
-        detail: {
-          message: `Failed to send test: ${error.message}`,
-          type: "error",
-        },
-      });
-      window.dispatchEvent(event);
-    }
-  }, [loadMessages]);
-
-  // Calculate pagination
   const paginatedMessages = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
@@ -544,15 +244,9 @@ Timestamp: ${new Date().toISOString()}`,
 
   const totalPages = Math.ceil(filteredMessages.length / itemsPerPage);
 
-  // Statistics
   const stats = useMemo(() => {
     if (!Array.isArray(messages)) {
-      return {
-        total: 0,
-        unread: 0,
-        read: 0,
-        archived: 0,
-      };
+      return { total: 0, unread: 0, read: 0, archived: 0 };
     }
 
     return {
@@ -563,7 +257,6 @@ Timestamp: ${new Date().toISOString()}`,
     };
   }, [messages]);
 
-  // Utility functions
   const formatDate = useCallback((dateString) => {
     if (!dateString) return "Unknown date";
     try {
@@ -628,24 +321,17 @@ Timestamp: ${new Date().toISOString()}`,
     }
   }, []);
 
-  // Loading state
   if (loading || !authChecked) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#2d5a27] border-t-transparent mx-auto"></div>
           <p className="mt-4 text-gray-600 font-medium">Loading messages...</p>
-          <p className="text-sm text-gray-500 mt-2">
-            {!authChecked
-              ? "Checking authentication..."
-              : "Fetching messages..."}
-          </p>
         </div>
       </div>
     );
   }
 
-  // Auth check
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col items-center justify-center p-8">
@@ -673,7 +359,6 @@ Timestamp: ${new Date().toISOString()}`,
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
-      {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-6 gap-4">
@@ -681,7 +366,6 @@ Timestamp: ${new Date().toISOString()}`,
               <Link
                 href="/admin/dashboard"
                 className="mr-4 text-gray-500 hover:text-gray-700 transition p-2 hover:bg-gray-100 rounded-lg"
-                title="Back to Dashboard"
               >
                 <ArrowLeft className="w-6 h-6" />
               </Link>
@@ -692,28 +376,23 @@ Timestamp: ${new Date().toISOString()}`,
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => loadMessages()}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <RefreshCw
-                  className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-                />
-                <span className="hidden sm:inline">Refresh</span>
-              </button>
-            </div>
+            <button
+              onClick={loadMessages}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+              />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats and Filters */}
         <div className="bg-white rounded-2xl shadow-sm border p-6 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            {/* Search */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Search Messages
@@ -730,7 +409,6 @@ Timestamp: ${new Date().toISOString()}`,
               </div>
             </div>
 
-            {/* Status Filter */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Filter by Status
@@ -751,7 +429,6 @@ Timestamp: ${new Date().toISOString()}`,
               </div>
             </div>
 
-            {/* Items per page */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Items per page
@@ -769,7 +446,6 @@ Timestamp: ${new Date().toISOString()}`,
             </div>
           </div>
 
-          {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {STATUS_OPTIONS.map((option) => {
               const count =
@@ -798,16 +474,10 @@ Timestamp: ${new Date().toISOString()}`,
           </div>
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
             <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-            <div>
-              <p className="text-red-800 font-medium">{error}</p>
-              <p className="text-red-600 text-sm mt-1">
-                Check your API endpoints or use the Test API button to verify.
-              </p>
-            </div>
+            <p className="text-red-800 font-medium">{error}</p>
             <button
               onClick={() => setError(null)}
               className="ml-auto text-red-600 hover:text-red-800"
@@ -817,9 +487,7 @@ Timestamp: ${new Date().toISOString()}`,
           </div>
         )}
 
-        {/* Messages Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Messages List */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
               <div className="px-6 py-4 border-b bg-gray-50">
@@ -916,7 +584,6 @@ Timestamp: ${new Date().toISOString()}`,
                       );
                     })}
 
-                    {/* Pagination */}
                     {totalPages > 1 && (
                       <div className="p-4 border-t flex items-center justify-between">
                         <div className="text-sm text-gray-500">
@@ -990,82 +657,27 @@ Timestamp: ${new Date().toISOString()}`,
                     <h3 className="text-lg font-medium text-gray-700 mb-2">
                       No messages found
                     </h3>
-                    <p className="text-gray-500 mb-6">
+                    <p className="text-gray-500">
                       {messages.length === 0
                         ? "No messages in the system yet."
                         : "No messages match your filters."}
                     </p>
-                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                      <button
-                        onClick={() => loadMessages()}
-                        className="px-4 py-2 bg-[#2d5a27] text-white rounded-lg hover:bg-green-800 transition"
-                      >
-                        <RefreshCw className="w-4 h-4 inline mr-2" />
-                        Retry Loading
-                      </button>
-                      <button
-                        onClick={sendTestMessage}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                      >
-                        <Send className="w-4 h-4 inline mr-2" />
-                        Send Test Message
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSearchTerm("");
-                          setStatusFilter("all");
-                        }}
-                        className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
-                      >
-                        Clear Filters
-                      </button>
-                    </div>
                   </div>
                 )}
               </div>
             </div>
-
-            {/* Debug Info (optional) */}
-            {showDebugInfo && (
-              <div className="mt-4 p-4 bg-gray-900 text-gray-100 rounded-xl text-sm font-mono">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-gray-400">Debug Info</span>
-                  <button
-                    onClick={() => setShowDebugInfo(false)}
-                    className="text-gray-400 hover:text-gray-200"
-                  >
-                    ×
-                  </button>
-                </div>
-                <div className="space-y-1">
-                  <div>API Endpoint: {apiEndpoint}</div>
-                  <div>Messages loaded: {messages.length}</div>
-                  <div>Filtered: {filteredMessages.length}</div>
-                  <div>Current page: {currentPage}</div>
-                  <div>Authenticated: {isAuthenticated ? "Yes" : "No"}</div>
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Message Detail Panel */}
           <div>
             {selectedMessage ? (
               <div className="bg-white rounded-2xl shadow-sm border sticky top-8">
-                <div className="px-6 py-4 border-b bg-gray-50 flex justify-between items-center">
+                <div className="px-6 py-4 border-b bg-gray-50">
                   <h2 className="text-xl font-semibold text-gray-800">
                     Message Details
                   </h2>
-                  <button
-                    onClick={() => setShowDebugInfo(!showDebugInfo)}
-                    className="text-sm text-gray-500 hover:text-gray-700"
-                  >
-                    Debug
-                  </button>
                 </div>
 
                 <div className="p-6 space-y-6">
-                  {/* Status Badge */}
                   <div className="flex justify-between items-center">
                     <div>
                       {(() => {
@@ -1088,7 +700,6 @@ Timestamp: ${new Date().toISOString()}`,
                     </div>
                   </div>
 
-                  {/* Sender Info */}
                   <div>
                     <h3 className="text-sm font-medium text-gray-700 mb-3">
                       Sender Information
@@ -1149,7 +760,6 @@ Timestamp: ${new Date().toISOString()}`,
                     </div>
                   </div>
 
-                  {/* Subject */}
                   <div>
                     <h3 className="text-sm font-medium text-gray-700 mb-2">
                       Subject
@@ -1159,7 +769,6 @@ Timestamp: ${new Date().toISOString()}`,
                     </p>
                   </div>
 
-                  {/* Message Content */}
                   <div>
                     <h3 className="text-sm font-medium text-gray-700 mb-2">
                       Message Content
@@ -1171,7 +780,6 @@ Timestamp: ${new Date().toISOString()}`,
                     </div>
                   </div>
 
-                  {/* Actions */}
                   <div className="pt-4 border-t">
                     <h3 className="text-sm font-medium text-gray-700 mb-3">
                       Quick Actions
@@ -1225,22 +833,10 @@ Timestamp: ${new Date().toISOString()}`,
                 <h3 className="text-lg font-medium text-gray-800 mb-2">
                   Select a Message
                 </h3>
-                <p className="text-gray-500 text-sm mb-6">
+                <p className="text-gray-500 text-sm">
                   Click on a message from the list to view its details and take
                   actions
                 </p>
-                {messages.length > 0 ? (
-                  <div className="text-sm text-gray-400">
-                    {filteredMessages.length} messages available
-                  </div>
-                ) : (
-                  <button
-                    onClick={sendTestMessage}
-                    className="w-full py-3 bg-green-100 text-green-700 rounded-xl border border-green-200 hover:bg-green-200 transition"
-                  >
-                    Send a test message to get started
-                  </button>
-                )}
               </div>
             )}
           </div>

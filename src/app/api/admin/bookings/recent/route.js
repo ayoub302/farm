@@ -2,34 +2,39 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 
-// Helper function to verify admin using your cookie system
-function verifyAdmin(request) {
-  const cookieStore = cookies();
-  const session = cookieStore.get("admin_session");
+// ✅ CORREGIDO: Helper function asíncrona para verificar admin
+async function verifyAdmin(request) {
+  try {
+    const cookieStore = await cookies(); // 👈 Añadir await
+    const session = cookieStore.get("admin_session");
 
-  // Verificar si la sesión existe y es válida
-  const isAuthenticated = session?.value === "authenticated";
+    // Verificar si la sesión existe y es válida
+    const isAuthenticated = session?.value === "authenticated";
 
-  if (!isAuthenticated) {
-    return { authenticated: false, error: "Not authenticated" };
+    if (!isAuthenticated) {
+      return { authenticated: false, error: "Not authenticated" };
+    }
+
+    // Obtener el email del admin de la sesión o de las cookies
+    const adminEmail = process.env.ADMIN_EMAIL;
+
+    return {
+      authenticated: true,
+      adminEmail,
+      userId: session?.value || "admin",
+    };
+  } catch (error) {
+    console.error("[VERIFY_ADMIN_ERROR]", error);
+    return { authenticated: false, error: "Authentication error" };
   }
-
-  // Obtener el email del admin de la sesión o de las cookies
-  const adminEmail = process.env.ADMIN_EMAIL;
-
-  return {
-    authenticated: true,
-    adminEmail,
-    userId: session?.value || "admin",
-  };
 }
 
 export async function GET(request) {
   try {
     console.log("[RESERVATIONS RECENT] Starting request...");
 
-    // Verificar autenticación con tu sistema de cookies
-    const auth = verifyAdmin(request);
+    // ✅ Verificar autenticación con await
+    const auth = await verifyAdmin(request);
 
     if (!auth.authenticated) {
       console.log("[RESERVATIONS RECENT] Not authenticated");
@@ -159,8 +164,8 @@ export async function POST(request) {
   try {
     console.log("[RESERVATIONS RECENT] POST request...");
 
-    // Verificar autenticación con tu sistema de cookies
-    const auth = verifyAdmin(request);
+    // ✅ Verificar autenticación con await
+    const auth = await verifyAdmin(request);
 
     if (!auth.authenticated) {
       console.log("[RESERVATIONS RECENT] Not authenticated");

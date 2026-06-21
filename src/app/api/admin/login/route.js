@@ -14,7 +14,7 @@ export async function POST(req) {
 
     if (!username || !password) {
       return NextResponse.json(
-        { error: "Usuario y contraseña requeridos" },
+        { error: "Nom d'utilisateur et mot de passe requis" },
         { status: 400 },
       );
     }
@@ -25,7 +25,7 @@ export async function POST(req) {
 
     if (!admin || admin.password !== hashPassword(password)) {
       return NextResponse.json(
-        { error: "Usuario o contraseña incorrectos" },
+        { error: "Nom d'utilisateur ou mot de passe incorrect" },
         { status: 401 },
       );
     }
@@ -34,13 +34,13 @@ export async function POST(req) {
     response.cookies.set("admin_session", "authenticated", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 8, // 8 horas
+      maxAge: 60 * 60 * 8, // 8 heures
       path: "/",
     });
 
     return response;
   } catch (error) {
     console.error("[ADMIN LOGIN ERROR]", error);
-    return NextResponse.json({ error: "Error del servidor" }, { status: 500 });
+    return NextResponse.json({ error: "Erreur du serveur" }, { status: 500 });
   }
 }
