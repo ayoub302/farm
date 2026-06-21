@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import ActividadCard from "@/components/ActividadCard";
 import CosechaCard from "@/components/CosechaCard";
 import Calendario from "@/components/Calendario";
-import AdminButton from "@/components/AdminButton";
 import Link from "next/link";
 import { useLanguage } from "@/components/LanguageContext";
 
@@ -128,7 +127,6 @@ export default function HomePage() {
         const response = await fetch("/api/harvests");
         if (response.ok) {
           const data = await response.json();
-          // Tomar solo las primeras 6 cosechas más recientes
           const recentHarvests = (data.harvests || []).slice(0, 6);
           setCosechasActuales(recentHarvests);
         } else {
@@ -271,9 +269,6 @@ export default function HomePage() {
 
   return (
     <div className="relative">
-      {/* ✅ ADMIN BUTTON - AHORA SE MUESTRA EN LA PÁGINA */}
-      <AdminButton />
-
       {/* Hero Section */}
       <section className="relative h-[600px] bg-gradient-to-r from-[#2d5a27] to-emerald-800 overflow-hidden">
         <div className="absolute inset-0 bg-black opacity-40"></div>

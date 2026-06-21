@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react"; // 1. Usamos useSyncExternalStore
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "../components/LanguageContext";
@@ -38,7 +38,7 @@ const textos = {
 
 // Función auxiliar para detectar si estamos en el cliente
 function subscribe() {
-  return () => {}; // No necesitamos suscribirnos a cambios, solo detectar el montaje
+  return () => {};
 }
 
 export default function Header() {
@@ -46,15 +46,12 @@ export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
 
-  // 2. Esta es la forma recomendada por React para evitar errores de hidratación
-  // Retorna 'false' en el servidor y 'true' en el cliente de forma segura.
   const isClient = useSyncExternalStore(
     subscribe,
     () => true,
-    () => false
+    () => false,
   );
 
-  // 3. Si no es el cliente, no renderizamos el contenido dependiente del idioma
   if (!isClient) {
     return (
       <header className="fixed top-0 w-full h-20 bg-white z-50 shadow-md" />
@@ -69,7 +66,7 @@ export default function Header() {
       className="fixed top-0 w-full z-50 shadow-md"
       dir={isRTL ? "rtl" : "ltr"}
     >
-      {/* 2. Menú Principal */}
+      {/* Menú Principal */}
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
@@ -118,9 +115,10 @@ export default function Header() {
               </div>
             </div>
 
-            {/* Móvil */}
-            <div className="md:hidden flex items-center gap-3">
+            {/* 📱 Móvil - Solo botón de menú (SIN AdminButton) */}
+            <div className="md:hidden flex items-center gap-2">
               <LanguageSwitcher />
+
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className="text-gray-700 p-2"
@@ -136,7 +134,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* 3. Menú Móvil */}
+      {/* 📱 Menú Móvil Desplegable - AdminButton ARRIBA del botón "Réserver" */}
       {isMenuOpen && (
         <div className="md:hidden bg-white border-b border-gray-200 animate-fade-in-down">
           <div className="px-4 pt-2 pb-6 space-y-2">
@@ -150,8 +148,15 @@ export default function Header() {
                 {item.name}
               </Link>
             ))}
+
+            {/* 🔥 AdminButton ARRIBA del botón de reservar */}
+            <div className="px-4 py-2">
+              <AdminButton />
+            </div>
+
             <Link
-              href="/actividades"
+              href="/reservation"
+              onClick={() => setIsMenuOpen(false)}
               className="flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-4 rounded-xl font-bold"
             >
               <FaCalendarAlt />

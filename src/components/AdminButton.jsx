@@ -52,14 +52,14 @@ export default function AdminButton() {
   const disableCopyPaste = (e) => e.preventDefault();
 
   return (
-    <div className="relative">
+    <div className="relative z-50 w-full md:w-auto">
       <button
         onClick={() => setShowPanel(!showPanel)}
-        className="bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition flex items-center gap-1.5 text-xs font-medium shadow-sm"
+        className="bg-gray-800 text-white px-3 py-2 rounded-lg hover:bg-gray-700 transition flex items-center justify-center gap-2 text-sm font-medium shadow-sm w-full md:w-auto"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          className="h-3.5 w-3.5"
+          className="h-4 w-4"
           viewBox="0 0 20 20"
           fill="currentColor"
         >
@@ -69,12 +69,12 @@ export default function AdminButton() {
             clipRule="evenodd"
           />
         </svg>
-        Admin
+        <span>Admin</span>
       </button>
 
       {showPanel && (
         <div
-          className="absolute top-full right-0 mt-2 bg-white shadow-2xl rounded-lg p-4 w-56 z-50 border border-gray-200"
+          className="absolute top-full left-0 md:right-0 md:left-auto mt-2 bg-white shadow-2xl rounded-lg p-4 w-56 z-50 border border-gray-200"
           onClick={(e) => e.stopPropagation()}
         >
           {!isLoggedIn ? (
