@@ -1,7 +1,6 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-const prisma = require("@/lib/prisma");
-
+import { prisma } from "@/lib/prisma";
 // Función helper para convertir BigInt a Number
 function convertBigInts(obj) {
   if (typeof obj === "bigint") {
@@ -43,14 +42,14 @@ export async function GET(request) {
 
     if (!isAdmin) {
       console.log(
-        `[ADMIN STATS] User is not admin. Role: ${user.publicMetadata?.role}, Email: ${userEmail}`
+        `[ADMIN STATS] User is not admin. Role: ${user.publicMetadata?.role}, Email: ${userEmail}`,
       );
       return NextResponse.json(
         {
           error: "Not authorized",
           details: "Only administrators can access this dashboard",
         },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -246,11 +245,11 @@ export async function GET(request) {
       respondedMessages = Number(
         await prisma.message.count({
           where: { status: "responded" },
-        })
+        }),
       );
     } catch (error) {
       console.log(
-        "[ADMIN STATS] 'responded' status not available, using 'read' instead"
+        "[ADMIN STATS] 'responded' status not available, using 'read' instead",
       );
       respondedMessages = Number(readMessages);
     }
@@ -369,7 +368,7 @@ export async function GET(request) {
           details: "Cannot connect to the database",
           timestamp: new Date().toISOString(),
         },
-        { status: 503 }
+        { status: 503 },
       );
     }
 
@@ -383,7 +382,7 @@ export async function GET(request) {
           details: "One or more database queries failed",
           timestamp: new Date().toISOString(),
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -394,7 +393,7 @@ export async function GET(request) {
           process.env.NODE_ENV === "development" ? error.message : undefined,
         timestamp: new Date().toISOString(),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -449,7 +448,7 @@ export async function POST(request) {
         details:
           process.env.NODE_ENV === "development" ? error.message : undefined,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

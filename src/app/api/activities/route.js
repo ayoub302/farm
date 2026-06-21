@@ -1,7 +1,6 @@
 // app/api/activities/route.js - CORREGIDA
 import { NextResponse } from "next/server";
-const prisma = require("@/lib/prisma");
-
+import { prisma } from "@/lib/prisma";
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);

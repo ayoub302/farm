@@ -1,5 +1,4 @@
-const prisma = require("@/lib/prisma");
-
+import { prisma } from "@/lib/prisma";
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -24,7 +23,7 @@ export async function POST(request) {
       "activityType",
     ];
     const missingFields = requiredFields.filter(
-      (field) => !body[field]?.toString().trim()
+      (field) => !body[field]?.toString().trim(),
     );
 
     if (missingFields.length > 0) {
@@ -37,7 +36,7 @@ export async function POST(request) {
         {
           status: 400,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
@@ -51,7 +50,7 @@ export async function POST(request) {
         {
           status: 400,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
@@ -67,7 +66,7 @@ export async function POST(request) {
         {
           status: 400,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
@@ -83,7 +82,7 @@ export async function POST(request) {
         {
           status: 400,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
     }
     // Crear código de reserva único
@@ -225,7 +224,7 @@ export async function POST(request) {
           "Content-Type": "application/json; charset=utf-8",
           "X-Booking-Code": reservation.bookingCode,
         },
-      }
+      },
     );
   } catch (error) {
     console.error("❌ [PUBLIC RESERVATION API] Error completo:", error);
@@ -242,7 +241,7 @@ export async function POST(request) {
         {
           status: 409,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
@@ -255,7 +254,7 @@ export async function POST(request) {
         {
           status: 400,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
@@ -271,7 +270,7 @@ export async function POST(request) {
       {
         status: 500,
         headers: { "Content-Type": "application/json" },
-      }
+      },
     );
   }
 }
@@ -298,7 +297,7 @@ export async function GET(request) {
         {
           status: 200,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
@@ -324,7 +323,7 @@ export async function GET(request) {
       {
         status: 200,
         headers: { "Content-Type": "application/json" },
-      }
+      },
     );
   } catch (error) {
     console.error("❌ [RESERVATION API GET] Error:", error);
@@ -335,7 +334,7 @@ export async function GET(request) {
       {
         status: 500,
         headers: { "Content-Type": "application/json" },
-      }
+      },
     );
   }
 }

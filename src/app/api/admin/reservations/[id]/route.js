@@ -1,7 +1,6 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-const prisma = require("@/lib/prisma");
-
+import { prisma } from "@/lib/prisma";
 // Función auxiliar para verificar si el usuario es admin
 async function verifyAdmin() {
   const user = await currentUser();
@@ -57,7 +56,7 @@ export async function GET(request, { params }) {
       console.log(`[RESERVATION GET API] Reservation ${id} not found`);
       return NextResponse.json(
         { error: "Reservation not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -92,7 +91,7 @@ export async function GET(request, { params }) {
         details:
           process.env.NODE_ENV === "development" ? error.message : undefined,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -134,14 +133,16 @@ export async function PATCH(request, { params }) {
 
     // Filtrar campos undefined
     const updates = Object.fromEntries(
-      Object.entries(allowedUpdates).filter(([_, value]) => value !== undefined)
+      Object.entries(allowedUpdates).filter(
+        ([_, value]) => value !== undefined,
+      ),
     );
 
     if (Object.keys(updates).length === 0) {
       console.log(`[RESERVATION PATCH API] No valid updates for ${id}`);
       return NextResponse.json(
         { error: "No valid updates provided" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -199,7 +200,7 @@ export async function PATCH(request, { params }) {
     if (error.code === "P2025") {
       return NextResponse.json(
         { error: "Reservation not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -209,7 +210,7 @@ export async function PATCH(request, { params }) {
         details:
           process.env.NODE_ENV === "development" ? error.message : undefined,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -238,7 +239,7 @@ export async function DELETE(request, { params }) {
       console.log(`[RESERVATION DELETE API] Reservation ${id} not found`);
       return NextResponse.json(
         { error: "Reservation not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -259,7 +260,7 @@ export async function DELETE(request, { params }) {
     if (error.code === "P2025") {
       return NextResponse.json(
         { error: "Reservation not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -269,7 +270,7 @@ export async function DELETE(request, { params }) {
         details:
           process.env.NODE_ENV === "development" ? error.message : undefined,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

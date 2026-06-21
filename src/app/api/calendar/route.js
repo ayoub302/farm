@@ -1,7 +1,6 @@
 // app/api/calendar/route.js - CORREGIDA
 import { NextResponse } from "next/server";
-const prisma = require("@/lib/prisma");
-
+import { prisma } from "@/lib/prisma";
 export async function GET(request) {
   try {
     console.log("[PUBLIC CALENDAR API] Fetching calendar data...");
@@ -88,7 +87,7 @@ export async function GET(request) {
     });
 
     console.log(
-      `[PUBLIC CALENDAR API] Found ${activities.length} activities, ${calendarEvents.length} public events`
+      `[PUBLIC CALENDAR API] Found ${activities.length} activities, ${calendarEvents.length} public events`,
     );
 
     // Función para extraer hora de DateTime
@@ -103,7 +102,7 @@ export async function GET(request) {
     const formattedActivities = activities.map((activity) => {
       const currentParticipants = activity.bookings.reduce(
         (sum, booking) => sum + (booking.numPeople || 0),
-        0
+        0,
       );
 
       const getActivityType = (category) => {
@@ -274,7 +273,7 @@ export async function GET(request) {
         error: "Failed to fetch calendar data",
         message: error.message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

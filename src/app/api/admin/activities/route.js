@@ -1,7 +1,7 @@
 // app/api/admin/activities/route.js
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-const prisma = require("@/lib/prisma");
+import { prisma } from "@/lib/prisma";
 
 // Helper function to convert BigInt to Number
 function convertBigInts(obj) {
@@ -115,7 +115,7 @@ export async function GET(request) {
     // If no activities found
     if (activities.length === 0) {
       console.log(
-        "[ACTIVITIES API GET] No activities found with current filters"
+        "[ACTIVITIES API GET] No activities found with current filters",
       );
       const safeData = convertBigInts({
         activities: [],
@@ -199,7 +199,7 @@ export async function GET(request) {
         details:
           process.env.NODE_ENV === "development" ? error.message : undefined,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -235,7 +235,7 @@ export async function POST(request) {
 
     console.log(
       "[ACTIVITIES API POST] Creating activity with data:",
-      activityData
+      activityData,
     );
 
     // Validate required fields
@@ -249,7 +249,7 @@ export async function POST(request) {
       "maxCapacity",
     ];
     const missingFields = requiredFields.filter(
-      (field) => !activityData[field]
+      (field) => !activityData[field],
     );
 
     if (missingFields.length > 0) {
@@ -258,7 +258,7 @@ export async function POST(request) {
           error: "Missing required fields",
           missingFields,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -271,7 +271,7 @@ export async function POST(request) {
         {
           error: "End date must be after start date",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -281,7 +281,7 @@ export async function POST(request) {
         {
           error: "Maximum capacity must be at least 1",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -308,7 +308,7 @@ export async function POST(request) {
     });
 
     console.log(
-      `[ACTIVITIES API POST] Activity created with ID: ${newActivity.id}`
+      `[ACTIVITIES API POST] Activity created with ID: ${newActivity.id}`,
     );
 
     // Create calendar event
@@ -324,7 +324,7 @@ export async function POST(request) {
             ? new Date(activityData.endDate)
             : new Date(
                 new Date(activityData.date).getTime() +
-                  (activityData.duration || 2) * 60 * 60 * 1000
+                  (activityData.duration || 2) * 60 * 60 * 1000,
               ),
           type: "activity",
           color: getColorByCategory(activityData.category || "visit"),
@@ -335,12 +335,12 @@ export async function POST(request) {
       });
 
       console.log(
-        `[ACTIVITIES API POST] Calendar event created with ID: ${calendarEvent.id}`
+        `[ACTIVITIES API POST] Calendar event created with ID: ${calendarEvent.id}`,
       );
     } catch (calendarError) {
       console.error(
         "[ACTIVITIES API POST] Error creating calendar event:",
-        calendarError
+        calendarError,
       );
       // Don't fail if calendar event can't be created
     }
@@ -372,7 +372,7 @@ export async function POST(request) {
         message: "Activity created successfully",
         activity: safeActivity,
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error("[ACTIVITIES API POST ERROR]", error);
@@ -385,7 +385,7 @@ export async function POST(request) {
           error: "Activity with similar data already exists",
           details: "Please check the activity details",
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
@@ -395,7 +395,7 @@ export async function POST(request) {
         details:
           process.env.NODE_ENV === "development" ? error.message : undefined,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

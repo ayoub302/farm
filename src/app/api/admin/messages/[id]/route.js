@@ -1,8 +1,7 @@
 // src/app/api/admin/messages/[id]/route.js
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-const prisma = require("@/lib/prisma");
-
+import { prisma } from "@/lib/prisma";
 // GET: Get single message by ID
 export async function GET(request, { params }) {
   try {
@@ -34,7 +33,7 @@ export async function GET(request, { params }) {
           error: "Not authorized",
           details: "Admin access required",
         },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -66,7 +65,7 @@ export async function GET(request, { params }) {
           error: "Message not found",
           message: "The requested message does not exist",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -83,7 +82,7 @@ export async function GET(request, { params }) {
           error: "Invalid request",
           details: "Invalid message ID format",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -93,7 +92,7 @@ export async function GET(request, { params }) {
           error: "Invalid ID format",
           details: "The provided message ID is not valid",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -103,7 +102,7 @@ export async function GET(request, { params }) {
         details:
           process.env.NODE_ENV === "development" ? error.message : undefined,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -150,7 +149,7 @@ export async function PATCH(request, { params }) {
           error: "Message not found",
           message: "The message does not exist in the database",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -169,7 +168,7 @@ export async function PATCH(request, { params }) {
             details: "Status must be: unread, read, responded, or archived",
             validStatuses,
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
       updateData.status = status;
@@ -177,7 +176,7 @@ export async function PATCH(request, { params }) {
       // Solo actualizamos el status
       if (status === "responded") {
         console.log(
-          `[UPDATE MESSAGE] Message ${id} marked as responded by ${userEmail}`
+          `[UPDATE MESSAGE] Message ${id} marked as responded by ${userEmail}`,
         );
       }
     } else {
@@ -187,7 +186,7 @@ export async function PATCH(request, { params }) {
           error: "No status provided",
           message: "Status field is required for update",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -251,7 +250,7 @@ export async function PATCH(request, { params }) {
           error: "Message not found",
           message: "The message does not exist in the database",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -261,7 +260,7 @@ export async function PATCH(request, { params }) {
           error: "Invalid ID format",
           details: "The provided message ID is not valid",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -271,7 +270,7 @@ export async function PATCH(request, { params }) {
         details:
           process.env.NODE_ENV === "development" ? error.message : undefined,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -322,7 +321,7 @@ export async function DELETE(request, { params }) {
           error: "Message not found",
           message: "The message no longer exists or was previously deleted",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -380,7 +379,7 @@ export async function DELETE(request, { params }) {
           error: "Message not found",
           message: "The message does not exist in the database",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -390,7 +389,7 @@ export async function DELETE(request, { params }) {
           error: "Invalid ID format",
           details: "The provided message ID is not valid",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -400,7 +399,7 @@ export async function DELETE(request, { params }) {
         details:
           process.env.NODE_ENV === "development" ? error.message : undefined,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -411,7 +410,7 @@ export async function POST(request, { params }) {
     const { id } = await params;
 
     console.log(
-      `[POST MESSAGE] Adding content to message ${id} - NOT SUPPORTED`
+      `[POST MESSAGE] Adding content to message ${id} - NOT SUPPORTED`,
     );
 
     return NextResponse.json(
@@ -420,7 +419,7 @@ export async function POST(request, { params }) {
         message: "This endpoint is not supported",
         note: "The Message model does not have fields for notes or replies. Update the model to enable this feature.",
       },
-      { status: 501 }
+      { status: 501 },
     ); // 501 Not Implemented
   } catch (error) {
     console.error("[POST MESSAGE ERROR]", error);
@@ -430,7 +429,7 @@ export async function POST(request, { params }) {
         details:
           process.env.NODE_ENV === "development" ? error.message : undefined,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

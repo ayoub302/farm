@@ -1,7 +1,6 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-const prisma = require("@/lib/prisma");
-
+import { prisma } from "@/lib/prisma";
 export async function GET(request) {
   try {
     console.log("[RESERVATIONS RECENT] Starting request...");
@@ -27,7 +26,7 @@ export async function GET(request) {
       console.log(`[RESERVATIONS RECENT] User is not admin.`);
       console.log(
         `[RESERVATIONS RECENT] User role:`,
-        user.publicMetadata?.role
+        user.publicMetadata?.role,
       );
       console.log(`[RESERVATIONS RECENT] Admin email required:`, ADMIN_EMAIL);
       return NextResponse.json(
@@ -35,7 +34,7 @@ export async function GET(request) {
           error: "Not authorized",
           details: "Only administrators can access this data",
         },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -95,7 +94,7 @@ export async function GET(request) {
     });
 
     console.log(
-      `[RESERVATIONS RECENT] Found ${reservations.length} reservations (total: ${total})`
+      `[RESERVATIONS RECENT] Found ${reservations.length} reservations (total: ${total})`,
     );
 
     // Agregar estadísticas a la respuesta
@@ -132,7 +131,7 @@ export async function GET(request) {
           error: "Database connection error",
           details: "Cannot connect to database",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -142,7 +141,7 @@ export async function GET(request) {
           error: "Database query error",
           details: "Invalid database query",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -152,7 +151,7 @@ export async function GET(request) {
         details:
           process.env.NODE_ENV === "development" ? error.message : undefined,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -181,7 +180,7 @@ export async function POST(request) {
           error: "Not authorized",
           details: "Only administrators can create test reservations",
         },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -223,7 +222,7 @@ export async function POST(request) {
     });
 
     console.log(
-      `[RESERVATIONS RECENT] Created reservation: ${newReservation.id} - ${newReservation.bookingCode}`
+      `[RESERVATIONS RECENT] Created reservation: ${newReservation.id} - ${newReservation.bookingCode}`,
     );
 
     return NextResponse.json(
@@ -232,7 +231,7 @@ export async function POST(request) {
         message: "Reservation created successfully",
         data: newReservation,
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error("[RESERVATIONS RECENT POST ERROR]", error);
@@ -242,7 +241,7 @@ export async function POST(request) {
         details:
           process.env.NODE_ENV === "development" ? error.message : undefined,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

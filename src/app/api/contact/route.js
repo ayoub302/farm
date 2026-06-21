@@ -1,6 +1,5 @@
 // src/app/api/contact/route.js
-const prisma = require("@/lib/prisma");
-
+import { prisma } from "@/lib/prisma";
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -24,7 +23,7 @@ export async function POST(request) {
     // Validar campos requeridos
     const requiredFields = ["name", "email", "subject", "message"];
     const missingFields = requiredFields.filter(
-      (field) => !body[field]?.trim()
+      (field) => !body[field]?.trim(),
     );
 
     if (missingFields.length > 0) {
@@ -35,7 +34,7 @@ export async function POST(request) {
           missingFields,
           message: `Por favor completa: ${missingFields.join(", ")}`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -59,7 +58,7 @@ export async function POST(request) {
       console.log("❌ [CONTACT API] Validación fallida:", validationErrors);
       return Response.json(
         { error: "Datos inválidos", details: validationErrors },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -71,7 +70,7 @@ export async function POST(request) {
       console.log("❌ [CONTACT API] Email inválido:", email);
       return Response.json(
         { error: "Formato de email inválido", received: email },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -90,7 +89,7 @@ export async function POST(request) {
             message: "Usa formato internacional: +212612345678 o 0612345678",
             received: phone,
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
@@ -126,7 +125,7 @@ export async function POST(request) {
           message: "Por favor espera unos minutos antes de enviar otro mensaje",
           cooldown: 300, // 5 minutos en segundos
         },
-        { status: 429 }
+        { status: 429 },
       );
     }
 
@@ -223,7 +222,7 @@ export async function POST(request) {
           "X-Message-ID": message.id,
           "Cache-Control": "no-store",
         },
-      }
+      },
     );
   } catch (error) {
     console.error("❌ [CONTACT API] Error interno:", error);
@@ -237,7 +236,7 @@ export async function POST(request) {
           details:
             process.env.NODE_ENV === "development" ? error.message : undefined,
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
@@ -248,7 +247,7 @@ export async function POST(request) {
           message:
             "Estamos experimentando problemas técnicos. Por favor intenta más tarde.",
         },
-        { status: 503 }
+        { status: 503 },
       );
     }
 
@@ -262,7 +261,7 @@ export async function POST(request) {
             "Hay campos en la solicitud que no existen en la base de datos",
           hint: "Verifica los campos: referer, origin, metadata no son válidos",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -275,7 +274,7 @@ export async function POST(request) {
           process.env.NODE_ENV === "development" ? error.message : undefined,
         timestamp: new Date().toISOString(),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -331,7 +330,7 @@ export async function GET(request) {
         error: error.message,
         timestamp: new Date().toISOString(),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

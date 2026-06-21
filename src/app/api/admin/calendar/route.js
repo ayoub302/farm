@@ -1,8 +1,7 @@
 // app/api/admin/calendar/route.js
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-const prisma = require("@/lib/prisma");
-
+import { prisma } from "@/lib/prisma";
 export async function GET(request) {
   try {
     console.log("[ADMIN CALENDAR API] Starting...");
@@ -149,17 +148,17 @@ export async function GET(request) {
     });
 
     console.log(
-      `[ADMIN CALENDAR API] Found ${activities.length} activities, ${calendarEvents.length} events, ${bookings.length} bookings`
+      `[ADMIN CALENDAR API] Found ${activities.length} activities, ${calendarEvents.length} events, ${bookings.length} bookings`,
     );
 
     // Format activities for calendar
     const formattedActivities = activities.map((activity) => {
       const confirmedBookings = activity.bookings.filter(
-        (b) => b.status === "confirmed"
+        (b) => b.status === "confirmed",
       );
       const currentParticipants = confirmedBookings.reduce(
         (sum, booking) => sum + (booking.numPeople || 0),
-        0
+        0,
       );
 
       return {
@@ -170,7 +169,7 @@ export async function GET(request) {
           activity.endDate ||
           new Date(
             new Date(activity.date).getTime() +
-              activity.duration * 60 * 60 * 1000
+              activity.duration * 60 * 60 * 1000,
           ),
         type: "activity",
         color: getActivityColor(activity),
@@ -250,7 +249,7 @@ export async function GET(request) {
     // If no data found, return empty with message
     if (calendarData.length === 0) {
       console.log(
-        "[ADMIN CALENDAR API] No calendar data found for the selected period"
+        "[ADMIN CALENDAR API] No calendar data found for the selected period",
       );
 
       const response = {
@@ -335,7 +334,7 @@ export async function GET(request) {
         details:
           process.env.NODE_ENV === "development" ? error.message : undefined,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -367,12 +366,12 @@ function getActivityColor(activity) {
       return activity.status === "upcoming"
         ? "#3b82f6"
         : activity.status === "active"
-        ? "#10b981"
-        : activity.status === "completed"
-        ? "#6b7280"
-        : activity.status === "cancelled"
-        ? "#ef4444"
-        : "#6b7280";
+          ? "#10b981"
+          : activity.status === "completed"
+            ? "#6b7280"
+            : activity.status === "cancelled"
+              ? "#ef4444"
+              : "#6b7280";
   }
 }
 
