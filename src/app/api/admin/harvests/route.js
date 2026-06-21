@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
-import prisma from "@/lib/prisma";
-
+import { prisma } from "@/lib/prisma";
 // Función para verificar administrador y obtener/cargar usuario
 async function verifyAdminAndGetUser() {
   try {
@@ -70,7 +69,7 @@ export async function GET(request) {
     if (result.error) {
       return NextResponse.json(
         { error: result.error },
-        { status: result.status }
+        { status: result.status },
       );
     }
 
@@ -145,7 +144,7 @@ export async function GET(request) {
     console.error("[GET_HARVESTS_ERROR]", error);
     return NextResponse.json(
       { error: "Failed to fetch harvests" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -158,7 +157,7 @@ export async function POST(request) {
     if (result.error) {
       return NextResponse.json(
         { error: result.error },
-        { status: result.status }
+        { status: result.status },
       );
     }
 
@@ -168,14 +167,14 @@ export async function POST(request) {
     if (!data.productAr || !data.productFr) {
       return NextResponse.json(
         { error: "Product name in both Arabic and French is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!data.nextHarvest) {
       return NextResponse.json(
         { error: "Next harvest date is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -233,7 +232,7 @@ export async function POST(request) {
     });
 
     console.log(
-      `[HARVEST_CREATED] New harvest created: ${harvest.productFr} (ID: ${harvest.id})`
+      `[HARVEST_CREATED] New harvest created: ${harvest.productFr} (ID: ${harvest.id})`,
     );
 
     return NextResponse.json(
@@ -242,7 +241,7 @@ export async function POST(request) {
         message: "Harvest created successfully",
         harvest,
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error("[CREATE_HARVEST_ERROR]", error);
@@ -251,13 +250,13 @@ export async function POST(request) {
     if (error.code === "P2002") {
       return NextResponse.json(
         { error: "A harvest with similar data already exists" },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
     return NextResponse.json(
       { error: "Failed to create harvest" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -1,8 +1,7 @@
 // /api/admin/harvests/list/route.js
 import { NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
-import prisma from "@/lib/prisma";
-
+import { prisma } from "@/lib/prisma";
 export async function GET(request) {
   try {
     // Obtener usuario actual de Clerk
@@ -17,7 +16,7 @@ export async function GET(request) {
     if (!userEmail) {
       return NextResponse.json(
         { error: "User email not found" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -30,7 +29,7 @@ export async function GET(request) {
     if (!isAdmin) {
       return NextResponse.json(
         { error: "Unauthorized - Admin access required" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -105,7 +104,7 @@ export async function GET(request) {
     console.error("[LIST_HARVESTS_ERROR]", error);
     return NextResponse.json(
       { error: "Failed to fetch harvests" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

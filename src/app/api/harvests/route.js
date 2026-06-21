@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
 
 export async function GET() {
   try {
@@ -62,7 +61,7 @@ export async function GET() {
         error: "Failed to fetch harvests",
         message: error.message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
